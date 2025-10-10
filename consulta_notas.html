@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Notas del Curso</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 1. Librería Google reCAPTCHA v2 (checkbox) -->
+    <!-- Definimos onloadCallback para renderizado explícito -->
+    <script>
+        let recaptchaWidgetId;
+        // REEMPLAZA ESTA CLAVE PÚBLICA con la que obtengas de Google
+        const RECAPTCHA_SITE_KEY = "YOUR_RECAPTCHA_SITE_KEY"; 
+
+        // Función llamada cuando la API de reCAPTCHA está lista
+        function onloadCallback() {
+            if (RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== "YOUR_RECAPTCHA_SITE_KEY") {
+                recaptchaWidgetId = grecaptcha.render('recaptcha-widget', {
+                    'sitekey': RECAPTCHA_SITE_KEY
+                });
+            } else {
+                console.warn("ADVERTENCIA: reCAPTCHA no renderizado. Reemplaza YOUR_RECAPTCHA_SITE_KEY.");
+                document.getElementById('recaptcha-widget').innerHTML = 
+                    '<div class="text-xs text-red-500 p-2 border border-red-300 rounded-md">🚧 Captcha en modo de prueba. ¡Configura tu clave!</div>';
+            }
+        }
+    </script>
+    <!-- Carga la API, llamando a onloadCallback cuando está lista -->
+    <script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit" async defer></script> 
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#1e40af',
+                        'success-green': '#10b981',
+                        'failure-red': '#ef4444',
+                        'bg-light': '#f9fafb',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Clase para animación de fade-in */
+        .fade-in {
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Estilo para los inputs */
+        input:focus {
+            outline: none;
+            border-color: #1e40af;
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.5); /* Sombra de foco azul */
+        }
+
+        /* Estilos del Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50; /* Tailwind z-50 */
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+            pointer-events: none;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            transform: scale(0.9);
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Modal de Recordatorio de Asistencia (INICIO) - Diseño Profesional -->
+    <div id="reminderModal" class="modal-overlay">
+        <div class="modal-content bg-white rounded-xl shadow-2xl max-w-sm w-11/12 p-6">
+            <div class="flex flex-col items-center">
+                <!-- Ícono de Advertencia / Información (más limpio que una imagen) -->
+                <div class="bg-yellow-500 rounded-full p-3 mb-4">
+                    <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.807-1.472 2.158-2.91L13.88 4.298c-.465-1.045-1.928-1.045-2.393 0L3.084 15.09c-.649 1.438.61 2.91 2.157 2.91z" />
+                    </svg>
+                </div>
+
+                <h3 class="text-2xl font-bold text-gray-800 mb-2 text-center">
+                    Recordatorio Importante
+                </h3>
+                
+                <p class="text-sm text-gray-600 mb-6 text-center">
+                    Ten en cuenta que la aprobación final del curso requiere cumplir con la **Nota Final aprobatoria** y el **90% de Asistencia** mínima.
+                </p>
+
+                <button id="closeModalBtn" class="w-full bg-primary-blue text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-md">
+                    Entendido, mostrar mis resultados
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal de Recordatorio de Asistencia (FIN) -->
+
+
+    <div id="app-container" class="w-full max-w-lg bg-white shadow-2xl rounded-xl p-8 transition duration-500 ease-in-out">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-extrabold text-gray-800">Consulta de Notas del Curso</h1>
+            <p class="text-gray-500 mt-1">Identifícate con tu DNI para ver tus calificaciones.</p>
+        </header>
+
+        <!-- Formulario de Consulta (Vertical: Botón debajo del input) -->
+        <form id="consultForm" class="flex flex-col gap-3">
+            
+            <!-- 2. Contenedor del CAPTCHA (MOVIDO ARRIBA DEL DNI) -->
+            <div id="recaptcha-widget" class="flex justify-center my-2"></div>
+            
+            <input type="text" id="dniInput" placeholder="Ingresa tu DNI" 
+                   class="p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue text-lg uppercase shadow-sm transition duration-150"
+                   maxlength="15" required />
+
+            <button type="submit" id="consultBtn" 
+                    class="bg-primary-blue text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-lg flex items-center justify-center disabled:opacity-50">
+                <span id="buttonText">Consultar Notas</span>
+                <div id="loadingSpinner" class="hidden w-5 h-5 border-2 border-t-2 border-white rounded-full animate-spin ml-2"></div>
+            </button>
+        </form>
+
+        <!-- Contenedor de Mensajes (Errores/Éxito) -->
+        <div id="messageContainer" class="mt-4 p-3 rounded-lg text-center font-medium hidden transition duration-300"></div>
+
+        <!-- Contenedor de Resultados (Inicialmente oculto) -->
+        <div id="resultsContainer" class="mt-6 space-y-6 opacity-0 pointer-events-none transition-opacity duration-500">
+            
+            <!-- DETALLE DE PRÁCTICAS (Grid 2x2 - FORMATO LLAMATIVO Y PULIDO) -->
+            <div class="p-5 bg-bg-light rounded-xl shadow-xl border border-gray-200">
+                <h2 class="text-xl font-extrabold text-gray-700 mb-5 text-center">
+                    Puntuación por Práctica
+                </h2>
+                <!-- Grid 2x2 con colores y sombras fuertes -->
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <!-- Práctica 1 - Azul fuerte -->
+                    <div class="p-4 bg-indigo-600 rounded-xl shadow-xl transition duration-300">
+                        <p class="text-base text-white/90 font-medium flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                            </svg>
+                            Práctica 1
+                        </p>
+                        <p id="p1Score" class="text-5xl font-extrabold text-white mt-1"></p>
+                    </div>
+                    <!-- Práctica 2 - Verde fuerte -->
+                    <div class="p-4 bg-emerald-600 rounded-xl shadow-xl transition duration-300">
+                        <p class="text-base text-white/90 font-medium flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                            </svg>
+                            Práctica 2
+                        </p>
+                        <p id="p2Score" class="text-5xl font-extrabold text-white mt-1"></p>
+                    </div>
+                    <!-- Práctica 3 - Amarillo/Naranja fuerte -->
+                    <div class="p-4 bg-orange-600 rounded-xl shadow-xl transition duration-300">
+                        <p class="text-base text-white/90 font-medium flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                            </svg>
+                            Práctica 3
+                        </p>
+                        <p id="p3Score" class="text-5xl font-extrabold text-white mt-1"></p>
+                    </div>
+                    <!-- Práctica 4 - Rojo fuerte -->
+                    <div class="p-4 bg-rose-600 rounded-xl shadow-xl transition duration-300">
+                        <p class="text-base text-white/90 font-medium flex items-center justify-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                            </svg>
+                            Práctica 4
+                        </p>
+                        <p id="p4Score" class="text-5xl font-extrabold text-white mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARJETA ÚNICA DE RESUMEN (Nota Final con Icono de Trofeo) -->
+            <div id="summaryCard" class="p-6 rounded-xl shadow-lg transition duration-300 ease-in-out text-center">
+                <p id="studentNameDisplay" class="text-3xl font-bold text-white mb-2"></p>
+                
+                <p class="font-semibold text-xl text-white mt-4 flex items-center justify-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    NOTA FINAL (Promedio Redondeado)
+                </p>
+                <p id="finalScore" class="text-8xl font-extrabold text-white mt-1"></p>
+                <p id="finalStatus" class="text-xl font-medium text-white opacity-90 mt-2"></p>
+
+                <div class="text-sm mt-4 pt-2 border-t border-white/30 text-white opacity-75">
+                    <p id="secureConnection">Conexión segura vía Google Apps Script</p>
+                    <p id="lastNoteConsult">Última consulta: Nunca</p>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        // La URL debe ser reemplazada con tu URL real de Google Apps Script
+        const APP_SCRIPT_URL = "https://script.google.com/macros/s/SU_APP_SCRIPT_ID/exec"; 
+        
+        // REEMPLAZA ESTO: Clave pública del sitio reCAPTCHA v2 (checkbox)
+        const RECAPTCHA_SITE_KEY = "YOUR_RECAPTCHA_SITE_KEY"; 
+        
+        // ID del widget reCAPTCHA renderizado
+        let recaptchaWidgetId;
+
+        // Simulación de datos de respuesta (Mock Data) para pruebas antes de conectar la API
+        const mockData = {
+            '12345678A': {
+                Nombre: 'Carlos Gómez',
+                Practica_1: 18, Practica_2: 17, Practica_3: 16, Practica_4: 18,
+                Nota_Final: 17.25,
+                Ultima_Consulta: new Date().toLocaleString(),
+            },
+            '98765432B': {
+                Nombre: 'Ana López',
+                Practica_1: 13, Practica_2: 14, Practica_3: 12, Practica_4: 13,
+                Nota_Final: 13.00,
+                Ultima_Consulta: new Date().toLocaleString(),
+            },
+            // DNI de prueba DESAPROBADO. Nota Final está VACÍA, el script la calculará (Simulación)
+            '44445555C': {
+                Nombre: 'Daniela Soto',
+                Practica_1: 10, Practica_2: 11, Tercera_Practica: 10, Practica_4: 11,
+                Nota_Final: NaN, // Simula celda vacía, el script debe calcular 10.50
+                Ultima_Consulta: 'Nunca',
+            }
+        };
+
+        const cache = {}; // Cache de sesión para evitar peticiones repetidas
+        const FORM = document.getElementById('consultForm');
+        const INPUT = document.getElementById('dniInput');
+        const BTN = document.getElementById('consultBtn');
+        const SPINNER = document.getElementById('loadingSpinner');
+        const BTN_TEXT = document.getElementById('buttonText');
+        const MESSAGE_CONTAINER = document.getElementById('messageContainer');
+        const RESULTS_CONTAINER = document.getElementById('resultsContainer');
+        const SUMMARY_CARD = document.getElementById('summaryCard');
+        const REMINDER_MODAL = document.getElementById('reminderModal');
+        const CLOSE_MODAL_BTN = document.getElementById('closeModalBtn');
+        const APPROVAL_THRESHOLD = 13; // Nota mínima para aprobar
+
+        // Función para simular un ID de Sesión de 20 dígitos
+        function generateSessionId() {
+            return Array.from({ length: 20 }, () => Math.floor(Math.random() * 10)).join('');
+        }
+
+        // Función que muestra el modal y espera a que el usuario presione 'Entendido'
+        function showReminderModal() {
+            return new Promise(resolve => {
+                REMINDER_MODAL.classList.add('active');
+                
+                const handler = () => {
+                    REMINDER_MODAL.classList.remove('active');
+                    CLOSE_MODAL_BTN.removeEventListener('click', handler);
+                    resolve();
+                };
+
+                CLOSE_MODAL_BTN.addEventListener('click', handler);
+            });
+        }
+
+
+        // Función de utilidad para manejar reintentos y simular latencia
+        async function exponentialBackoffFetch(url, options, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    // Si estamos en modo mock (usando la URL de ejemplo), simular latencia
+                    if (url.includes("SU_APP_SCRIPT_ID")) {
+                        await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 500)); 
+                    }
+                    
+                    const response = await fetch(url, options); // Se usa POST por el cálculo/escritura
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                } catch (error) {
+                    console.error(`Fetch attempt ${i + 1} failed:`, error);
+                    if (i === retries - 1) throw error;
+                    // Espera exponencial antes de reintentar (1s, 2s, 4s...)
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                }
+            }
+        }
+
+        async function fetchScores(dni, recaptchaToken) { // Recibe el token
+            // 1. Verificar Caché (no necesita token)
+            if (cache[dni]) {
+                const data = cache[dni];
+                data.cached = true;
+                return data;
+            }
+
+            // 2. Modo MOCK (Usando la URL de Ejemplo)
+            if (APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
+                const data = mockData[dni];
+                if (data) return {...data, cached: false}; 
+                throw new Error("DNI no encontrado o error simulado.");
+            }
+
+            // 3. Modo REAL (Llamada al Google Apps Script via POST)
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                // Incluye el token de reCAPTCHA en el cuerpo de la petición
+                body: JSON.stringify({ dni: dni, recaptchaToken: recaptchaToken }) 
+            };
+
+            const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, options);
+            
+            if (apiResponse.success) {
+                // Almacenar en caché y devolver
+                cache[dni] = apiResponse.data;
+                return {...apiResponse.data, cached: false}; 
+            } else {
+                // El script devolvió 'success: false' (ej: DNI no encontrado, o FALLO EL CAPTCHA)
+                throw new Error(apiResponse.message || "No se pudo obtener la información.");
+            }
+        }
+
+        function displayResults(data, isCached) {
+            // 1. Preparar datos
+            let rawFinalScore = data.Nota_Final; 
+
+            // **SOLUCIÓN NaN PARA MOCK DATA:** Si es NaN (celda vacía simulada), calcular el promedio.
+            if (isNaN(rawFinalScore)) {
+                 rawFinalScore = (data.Practica_1 + data.Practica_2 + (data.Practica_3 || data.Tercera_Practica) + data.Practica_4) / 4;
+            }
+
+            const roundedFinalScore = Math.round(rawFinalScore); 
+            const isApproved = rawFinalScore >= APPROVAL_THRESHOLD;
+            
+            // 2. Aplicar colores y mensaje
+            const statusColor = isApproved ? 'bg-success-green' : 'bg-failure-red';
+            
+            // Lógica de mensaje: incluye "Sigue esforzándote"
+            const statusText = isApproved 
+                ? '¡Aprobado! Felicitaciones por tu esfuerzo.' 
+                : 'Desaprobado. Sigue esforzándote.'; 
+            
+            // 3. Actualizar la Tarjeta de Resumen
+            SUMMARY_CARD.className = `p-6 rounded-xl shadow-lg transition duration-300 ease-in-out ${statusColor}`;
+            document.getElementById('studentNameDisplay').textContent = data.Nombre;
+            document.getElementById('finalScore').textContent = roundedFinalScore;
+            document.getElementById('finalStatus').textContent = `${statusText}`;
+            
+            // 4. Actualizar Timestamps
+            const consultSource = isCached ? '(Caché)' : '(Sistema)';
+            document.getElementById('lastNoteConsult').textContent = `Última consulta: ${data.Ultima_Consulta} ${consultSource}`;
+            
+            // 5. Actualizar Prácticas
+            document.getElementById('p1Score').textContent = data.Practica_1;
+            document.getElementById('p2Score').textContent = data.Practica_2;
+            document.getElementById('p3Score').textContent = data.Practica_3 || data.Tercera_Practica; 
+            document.getElementById('p4Score').textContent = data.Practica_4;
+            
+            // 6. Mostrar mensaje de éxito con el formato de Conexión Segura e ID de Sesión
+            const sessionId = generateSessionId();
+            showMessage(`Resultados de ${data.Nombre} cargados. Fuente: ${consultSource}`, 'success', sessionId);
+            
+            // 7. Mostrar contenedor de resultados con fade-in
+            RESULTS_CONTAINER.classList.remove('opacity-0', 'pointer-events-none');
+            RESULTS_CONTAINER.classList.add('fade-in');
+        }
+
+        function showMessage(msg, type = 'error', sessionId = null) {
+            MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'fade-in', 'border-l-4', 'border-green-500', 'border-red-500');
+            
+            let contentHTML = '';
+
+            if (type === 'success') {
+                // Estilo para el mensaje de éxito (SIN "Listo" y con espaciado ajustado)
+                MESSAGE_CONTAINER.classList.add('bg-green-100', 'text-green-700', 'border-l-4', 'border-green-500', 'fade-in', 'text-left', 'py-3');
+                
+                contentHTML = `
+                    <div class="text-left leading-tight">
+                        <p class="text-base text-green-700 font-bold">Conexión segura establecida. ¡Bienvenido!</p>
+                    </div>
+                `;
+                // Añadir el ID de Sesión
+                if (sessionId) {
+                    // Usamos mt-1 y ajustamos el tamaño de fuente para pegarlo más al texto superior
+                    contentHTML += `<p class="text-xs text-gray-500 mt-1 text-left font-medium">Tu ID de Sesión: <span class="font-mono text-gray-800">${sessionId}</span></p>`;
+                }
+
+            } else {
+                // Estilo para el mensaje de Error (Simple)
+                MESSAGE_CONTAINER.classList.add('bg-red-100', 'text-red-700', 'border-l-4', 'border-red-500', 'fade-in', 'text-center');
+                contentHTML = msg; 
+            }
+            MESSAGE_CONTAINER.innerHTML = contentHTML;
+        }
+
+        function resetUI() {
+            RESULTS_CONTAINER.classList.add('opacity-0', 'pointer-events-none');
+            RESULTS_CONTAINER.classList.remove('fade-in');
+            MESSAGE_CONTAINER.classList.add('hidden');
+            document.getElementById('studentNameDisplay').textContent = '';
+            // Resetea el CAPTCHA después de cualquier acción, si está renderizado
+            if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) {
+                grecaptcha.reset(recaptchaWidgetId);
+            }
+        }
+        
+        // Manejador de envío del formulario
+        FORM.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const dni = INPUT.value.toUpperCase().trim();
+            const recaptchaToken = grecaptcha.getResponse(recaptchaWidgetId);
+
+            if (!dni) {
+                showMessage("Por favor, ingresa tu DNI.", 'error');
+                return;
+            }
+
+            // Validación de CAPTCHA
+            if (!recaptchaToken && !APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
+                showMessage("Por favor, completa el CAPTCHA para continuar.", 'error');
+                return;
+            }
+            
+            resetUI();
+            BTN.disabled = true;
+            BTN_TEXT.textContent = 'Buscando...';
+            SPINNER.classList.remove('hidden');
+
+            try {
+                // 1. Obtener los datos del backend, enviando el token de seguridad
+                const data = await fetchScores(dni, recaptchaToken);
+                
+                // 2. Ocultar spinner y mostrar modal de recordatorio
+                SPINNER.classList.add('hidden');
+                BTN_TEXT.textContent = 'Consultar Notas';
+                BTN.disabled = false;
+                
+                // 3. Mostrar el modal y esperar a que el usuario lo cierre
+                await showReminderModal();
+                
+                // 4. Mostrar los resultados finales
+                displayResults(data, data.cached);
+
+            } catch (error) {
+                console.error("Error en la consulta:", error);
+                // Si hay error, el mensaje es simple y centrado
+                showMessage(error.message || "Ocurrió un error al intentar consultar los datos. Por favor, verifica el DNI e inténtalo de nuevo.", 'error');
+                BTN.disabled = false;
+                BTN_TEXT.textContent = 'Consultar Notas';
+                SPINNER.classList.add('hidden');
+            }
+            // Resetea el CAPTCHA al final de la ejecución, independientemente del éxito
+            if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) {
+                grecaptcha.reset(recaptchaWidgetId);
+            }
+        });
+        
+        // Inicializar el DNI al cargar la página (opcional)
+        window.onload = () => {
+             console.log("Sistema listo. Usa 12345678A (Aprobado), 98765432B (Límite) o 44445555C (Desaprobado/Cálculo) para pruebas.");
+        };
+
+    </script>
+</body>
+</html>
