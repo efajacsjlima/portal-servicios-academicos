@@ -138,7 +138,7 @@
         </header>
 
         <!-- Formulario de Consulta (Vertical: Botón debajo del input) -->
-        <form id="consultForm" class="flex flex-col gap-3">
+        <form id="consultForm" onsubmit="handleFormSubmit(event)" class="flex flex-col gap-3">
             
             <!-- 2. Contenedor del CAPTCHA (MOVIDO ARRIBA DEL DNI) -->
             <div id="recaptcha-widget" class="flex justify-center my-2"></div>
@@ -267,6 +267,7 @@
         };
 
         const cache = {}; // Cache de sesión para evitar peticiones repetidas
+        // Variables DOM sin inicializar al inicio, se inicializan en window.onload
         let FORM, INPUT, BTN, SPINNER, BTN_TEXT, MESSAGE_CONTAINER, RESULTS_CONTAINER, SUMMARY_CARD, REMINDER_MODAL, CLOSE_MODAL_BTN, APPROVAL_THRESHOLD;
 
         // Función para simular un ID de Sesión de 20 dígitos
@@ -433,8 +434,8 @@
             }
         }
         
-        // Listener para la carga del DOM - Asegura que todos los elementos existan antes de asignar eventos
-        window.addEventListener('DOMContentLoaded', () => {
+        // Asignación de variables DOM y Manejador de Eventos
+        window.onload = () => {
             // Asignación de variables DOM
             FORM = document.getElementById('consultForm');
             INPUT = document.getElementById('dniInput');
@@ -447,62 +448,62 @@
             REMINDER_MODAL = document.getElementById('reminderModal');
             CLOSE_MODAL_BTN = document.getElementById('closeModalBtn');
             APPROVAL_THRESHOLD = 13; 
-            
-            // Manejador de envío del formulario
-            FORM.addEventListener('submit', async (e) => {
-                e.preventDefault(); // Línea VITAL: Detiene la recarga de la página
-
-                const dni = INPUT.value.toUpperCase().trim();
-                // Obtener el token del CAPTCHA solo si está renderizado
-                const recaptchaToken = (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) ? grecaptcha.getResponse(recaptchaWidgetId) : null;
-
-                if (!dni) {
-                    showMessage("Por favor, ingresa tu DNI.", 'error');
-                    return;
-                }
-
-                // Validación de CAPTCHA
-                if (!recaptchaToken && !APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
-                    showMessage("Por favor, completa el CAPTCHA para continuar.", 'error');
-                    return;
-                }
-                
-                resetUI();
-                BTN.disabled = true;
-                BTN_TEXT.textContent = 'Buscando...';
-                SPINNER.classList.remove('hidden');
-
-                try {
-                    // 1. Obtener los datos del backend, enviando el token de seguridad
-                    const data = await fetchScores(dni, recaptchaToken);
-                    
-                    // 2. Ocultar spinner y mostrar modal de recordatorio
-                    SPINNER.classList.add('hidden');
-                    BTN_TEXT.textContent = 'Consultar Notas';
-                    BTN.disabled = false;
-                    
-                    // 3. Mostrar el modal y esperar a que el usuario lo cierre
-                    await showReminderModal();
-                    
-                    // 4. Mostrar los resultados finales
-                    displayResults(data, data.cached);
-
-                } catch (error) {
-                    console.error("Error en la consulta:", error);
-                    // Si hay error, el mensaje es simple y centrado
-                    showMessage(error.message || "Ocurrió un error al intentar consultar los datos. Por favor, verifica el DNI e inténtalo de nuevo.", 'error');
-                    BTN.disabled = false;
-                    BTN_TEXT.textContent = 'Consultar Notas';
-                    SPINNER.classList.add('hidden');
-                }
-                // Resetea el CAPTCHA al final de la ejecución, independientemente del éxito
-                if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) {
-                    grecaptcha.reset(recaptchaWidgetId);
-                }
-            });
 
             console.log("Sistema listo. Usa 12345678A (Aprobado), 98765432B (Límite) o 44445555C (Desaprobado/Cálculo) para pruebas.");
-        });
+        };
+        
+        // NUEVO MANEJADOR GLOBAL: Se ejecuta directamente desde el onsubmit del formulario (más fiable)
+        async function handleFormSubmit(e) {
+            e.preventDefault(); // LÍNEA VITAL: Detiene la recarga de la página
+
+            const dni = INPUT.value.toUpperCase().trim();
+            // Obtener el token del CAPTCHA solo si está renderizado
+            const recaptchaToken = (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) ? grecaptcha.getResponse(recaptchaWidgetId) : null;
+
+            if (!dni) {
+                showMessage("Por favor, ingresa tu DNI.", 'error');
+                return;
+            }
+
+            // Validación de CAPTCHA
+            if (!recaptchaToken && !APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
+                showMessage("Por favor, completa el CAPTCHA para continuar.", 'error');
+                return;
+            }
+            
+            resetUI();
+            BTN.disabled = true;
+            BTN_TEXT.textContent = 'Buscando...';
+            SPINNER.classList.remove('hidden');
+
+            try {
+                // 1. Obtener los datos del backend, enviando el token de seguridad
+                const data = await fetchScores(dni, recaptchaToken);
+                
+                // 2. Ocultar spinner y mostrar modal de recordatorio
+                SPINNER.classList.add('hidden');
+                BTN_TEXT.textContent = 'Consultar Notas';
+                BTN.disabled = false;
+                
+                // 3. Mostrar el modal y esperar a que el usuario lo cierre
+                await showReminderModal();
+                
+                // 4. Mostrar los resultados finales
+                displayResults(data, data.cached);
+
+            } catch (error) {
+                console.error("Error en la consulta:", error);
+                // Si hay error, el mensaje es simple y centrado
+                showMessage(error.message || "Ocurrió un error al intentar consultar los datos. Por favor, verifica el DNI e inténtalo de nuevo.", 'error');
+                BTN.disabled = false;
+                BTN_TEXT.textContent = 'Consultar Notas';
+                SPINNER.classList.add('hidden');
+            }
+            // Resetea el CAPTCHA al final de la ejecución, independientemente del éxito
+            if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) {
+                grecaptcha.reset(recaptchaWidgetId);
+            }
+        }
 
 
     </script>
