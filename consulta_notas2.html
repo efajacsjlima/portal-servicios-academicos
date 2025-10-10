@@ -7,32 +7,8 @@
     <!-- Carga de Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 1. Librería Google reCAPTCHA v2 (checkbox) -->
-    <!-- Definimos onloadCallback para renderizado explícito -->
-    <script>
-        let recaptchaWidgetId;
-        // La Clave Pública de tu Sitio reCAPTCHA
-        const RECAPTCHA_SITE_KEY = "6LdCwuUrAAAAAC3wyNhkpJm2uK54Y-Ya_KerlA_7"; 
-        const PLACEHOLDER_KEY = "YOUR_RECAPTCHA_SITE_KEY"; // Placeholder original para comparación
-
-        // Función llamada cuando la API de reCAPTCHA está lista
-        function onloadCallback() {
-            // Comprobamos que la clave no sea el placeholder original.
-            if (RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== PLACEHOLDER_KEY) {
-                recaptchaWidgetId = grecaptcha.render('recaptcha-widget', {
-                    'sitekey': RECAPTCHA_SITE_KEY
-                });
-            } else {
-                console.warn("ADVERTENCIA: reCAPTCHA no renderizado. Reemplaza YOUR_RECAPTCHA_SITE_KEY.");
-                document.getElementById('recaptcha-widget').innerHTML = 
-                    '<div class="text-xs text-red-500 p-2 border border-red-300 rounded-md">🚧 Captcha en modo de prueba. ¡Configura tu clave!</div>';
-            }
-        }
-    </script>
-    <!-- Carga la API, llamando a onloadCallback cuando está lista -->
-    <script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit" async defer></script> 
-
-
+    <!-- SIN RECAPTCHA: Toda la lógica de reCAPTCHA ha sido eliminada para evitar conflicto de recarga. -->
+    
     <script>
         tailwind.config = {
             theme: {
@@ -138,10 +114,10 @@
         </header>
 
         <!-- Formulario de Consulta (Vertical: Botón debajo del input) -->
-        <form id="consultForm" onsubmit="handleFormSubmit(event)" class="flex flex-col gap-3">
+        <!-- La función handleFormSubmit se adjunta en el JS -->
+        <form id="consultForm" class="flex flex-col gap-3">
             
-            <!-- 2. Contenedor del CAPTCHA (MOVIDO ARRIBA DEL DNI) -->
-            <div id="recaptcha-widget" class="flex justify-center my-2"></div>
+            <!-- CONTENEDOR DE CAPTCHA ELIMINADO -->
             
             <input type="text" id="dniInput" placeholder="Ingresa tu DNI" 
                    class="p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue text-lg uppercase shadow-sm transition duration-150"
@@ -237,11 +213,11 @@
         const APP_SCRIPT_URL = "https://script.google.com/macros/s/SU_APP_SCRIPT_ID/exec"; 
         
         // La Clave Pública de tu Sitio reCAPTCHA
+        // Mantenemos la variable, pero la dejamos sin usar para simplificar
         const RECAPTCHA_SITE_KEY = "6LdCwuUrAAAAAC3wyNhkpJm2uK54Y-Ya_KerlA_7"; 
         
         // ID del widget reCAPTCHA renderizado
         let recaptchaWidgetId;
-        const PLACEHOLDER_KEY = "YOUR_RECAPTCHA_SITE_KEY";
 
         // Simulación de datos de respuesta (Mock Data) para pruebas antes de conectar la API
         const mockData = {
@@ -334,8 +310,8 @@
             const options = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // Incluye el token de reCAPTCHA en el cuerpo de la petición
-                body: JSON.stringify({ dni: dni, recaptchaToken: recaptchaToken }) 
+                // NO INCLUIMOS EL TOKEN YA QUE NO HAY CAPTCHA
+                body: JSON.stringify({ dni: dni }) 
             };
 
             const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, options);
@@ -428,10 +404,7 @@
             RESULTS_CONTAINER.classList.remove('fade-in');
             MESSAGE_CONTAINER.classList.add('hidden');
             document.getElementById('studentNameDisplay').textContent = '';
-            // Resetea el CAPTCHA después de cualquier acción, si está renderizado
-            if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) {
-                grecaptcha.reset(recaptchaWidgetId);
-            }
+            // Resetea el CAPTCHA (No necesario en esta versión)
         }
         
         // Asignación de variables DOM y Manejador de Eventos
@@ -448,28 +421,24 @@
             REMINDER_MODAL = document.getElementById('reminderModal');
             CLOSE_MODAL_BTN = document.getElementById('closeModalBtn');
             APPROVAL_THRESHOLD = 13; 
-
-            console.log("Sistema listo. Usa 12345678A (Aprobado), 98765432B (Límite) o 44445555C (Desaprobado/Cálculo) para pruebas.");
+            
+            // Ahora adjuntamos el manejador de submit DENTRO de window.onload
+            FORM.addEventListener('submit', handleFormSubmit);
         };
         
-        // NUEVO MANEJADOR GLOBAL: Se ejecuta directamente desde el onsubmit del formulario (más fiable)
+        // NUEVO MANEJADOR GLOBAL: Ahora es una función asíncrona normal.
         async function handleFormSubmit(e) {
             e.preventDefault(); // LÍNEA VITAL: Detiene la recarga de la página
 
             const dni = INPUT.value.toUpperCase().trim();
-            // Obtener el token del CAPTCHA solo si está renderizado
-            const recaptchaToken = (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) ? grecaptcha.getResponse(recaptchaWidgetId) : null;
+            // Ya no obtenemos token de reCAPTCHA
 
             if (!dni) {
                 showMessage("Por favor, ingresa tu DNI.", 'error');
                 return;
             }
-
-            // Validación de CAPTCHA
-            if (!recaptchaToken && !APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
-                showMessage("Por favor, completa el CAPTCHA para continuar.", 'error');
-                return;
-            }
+            
+            // Eliminada la validación de CAPTCHA
             
             resetUI();
             BTN.disabled = true;
@@ -478,7 +447,8 @@
 
             try {
                 // 1. Obtener los datos del backend, enviando el token de seguridad
-                const data = await fetchScores(dni, recaptchaToken);
+                // Pasamos null como token ya que no se usa en esta versión
+                const data = await fetchScores(dni, null); 
                 
                 // 2. Ocultar spinner y mostrar modal de recordatorio
                 SPINNER.classList.add('hidden');
@@ -499,10 +469,7 @@
                 BTN_TEXT.textContent = 'Consultar Notas';
                 SPINNER.classList.add('hidden');
             }
-            // Resetea el CAPTCHA al final de la ejecución, independientemente del éxito
-            if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) {
-                grecaptcha.reset(recaptchaWidgetId);
-            }
+            // Eliminado el reset del CAPTCHA
         }
 
 
