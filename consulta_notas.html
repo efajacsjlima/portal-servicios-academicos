@@ -138,6 +138,7 @@
         </header>
 
         <!-- Formulario de Consulta (Vertical: Botón debajo del input) -->
+        <!-- NOTA: Hemos quitado onsubmit del HTML y lo adjuntamos en JS -->
         <form id="consultForm" class="flex flex-col gap-3">
             
             <!-- 2. Contenedor del CAPTCHA (MOVIDO ARRIBA DEL DNI) -->
@@ -267,17 +268,8 @@
         };
 
         const cache = {}; // Cache de sesión para evitar peticiones repetidas
-        const FORM = document.getElementById('consultForm');
-        const INPUT = document.getElementById('dniInput');
-        const BTN = document.getElementById('consultBtn');
-        const SPINNER = document.getElementById('loadingSpinner');
-        const BTN_TEXT = document.getElementById('buttonText');
-        const MESSAGE_CONTAINER = document.getElementById('messageContainer');
-        const RESULTS_CONTAINER = document.getElementById('resultsContainer');
-        const SUMMARY_CARD = document.getElementById('summaryCard');
-        const REMINDER_MODAL = document.getElementById('reminderModal');
-        const CLOSE_MODAL_BTN = document.getElementById('closeModalBtn');
-        const APPROVAL_THRESHOLD = 13; // Nota mínima para aprobar
+        // Variables DOM sin inicializar al inicio, se inicializan en window.onload
+        let FORM, INPUT, BTN, SPINNER, BTN_TEXT, MESSAGE_CONTAINER, RESULTS_CONTAINER, SUMMARY_CARD, REMINDER_MODAL, CLOSE_MODAL_BTN, APPROVAL_THRESHOLD;
 
         // Función para simular un ID de Sesión de 20 dígitos
         function generateSessionId() {
@@ -443,11 +435,32 @@
             }
         }
         
-        // Manejador de envío del formulario
-        FORM.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // Asignación de variables DOM y Manejador de Eventos
+        window.onload = () => {
+            // Asignación de variables DOM
+            FORM = document.getElementById('consultForm');
+            INPUT = document.getElementById('dniInput');
+            BTN = document.getElementById('consultBtn');
+            SPINNER = document.getElementById('loadingSpinner');
+            BTN_TEXT = document.getElementById('buttonText');
+            MESSAGE_CONTAINER = document.getElementById('messageContainer');
+            RESULTS_CONTAINER = document.getElementById('resultsContainer');
+            SUMMARY_CARD = document.getElementById('summaryCard');
+            REMINDER_MODAL = document.getElementById('reminderModal');
+            CLOSE_MODAL_BTN = document.getElementById('closeModalBtn');
+            APPROVAL_THRESHOLD = 13; 
+            
+            // Ahora adjuntamos el manejador de submit DENTRO de window.onload
+            FORM.addEventListener('submit', handleFormSubmit);
+        };
+        
+        // NUEVO MANEJADOR GLOBAL: Ahora es una función asíncrona normal.
+        async function handleFormSubmit(e) {
+            e.preventDefault(); // LÍNEA VITAL: Detiene la recarga de la página
+
             const dni = INPUT.value.toUpperCase().trim();
-            const recaptchaToken = grecaptcha.getResponse(recaptchaWidgetId);
+            // Obtener el token del CAPTCHA solo si está renderizado
+            const recaptchaToken = (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) ? grecaptcha.getResponse(recaptchaWidgetId) : null;
 
             if (!dni) {
                 showMessage("Por favor, ingresa tu DNI.", 'error');
@@ -492,12 +505,8 @@
             if (typeof grecaptcha !== 'undefined' && recaptchaWidgetId !== undefined) {
                 grecaptcha.reset(recaptchaWidgetId);
             }
-        });
-        
-        // Inicializar el DNI al cargar la página (opcional)
-        window.onload = () => {
-             console.log("Sistema listo. Usa 12345678A (Aprobado), 98765432B (Límite) o 44445555C (Desaprobado/Cálculo) para pruebas.");
-        };
+        }
+
 
     </script>
 </body>
