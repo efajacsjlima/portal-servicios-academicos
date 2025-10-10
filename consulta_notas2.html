@@ -11,12 +11,14 @@
     <!-- Definimos onloadCallback para renderizado explícito -->
     <script>
         let recaptchaWidgetId;
-        // REEMPLAZA ESTA CLAVE PÚBLICA con la que obtengas de Google
-        const RECAPTCHA_SITE_KEY = "YOUR_RECAPTCHA_SITE_KEY"; 
+        // La Clave Pública de tu Sitio reCAPTCHA
+        const RECAPTCHA_SITE_KEY = "6LdCwuUrAAAAAC3wyNhkpJm2uK54Y-Ya_KerlA_7"; 
+        const PLACEHOLDER_KEY = "YOUR_RECAPTCHA_SITE_KEY"; // Placeholder original para comparación
 
         // Función llamada cuando la API de reCAPTCHA está lista
         function onloadCallback() {
-            if (RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== "YOUR_RECAPTCHA_SITE_KEY") {
+            // Comprobamos que la clave no sea el placeholder original.
+            if (RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== PLACEHOLDER_KEY) {
                 recaptchaWidgetId = grecaptcha.render('recaptcha-widget', {
                     'sitekey': RECAPTCHA_SITE_KEY
                 });
@@ -234,11 +236,12 @@
         // La URL debe ser reemplazada con tu URL real de Google Apps Script
         const APP_SCRIPT_URL = "https://script.google.com/macros/s/SU_APP_SCRIPT_ID/exec"; 
         
-        // REEMPLAZA ESTO: Clave pública del sitio reCAPTCHA v2 (checkbox)
-        const RECAPTCHA_SITE_KEY = "YOUR_RECAPTCHA_SITE_KEY"; 
+        // La Clave Pública de tu Sitio reCAPTCHA
+        const RECAPTCHA_SITE_KEY = "6LdCwuUrAAAAAC3wyNhkpJm2uK54Y-Ya_KerlA_7"; 
         
         // ID del widget reCAPTCHA renderizado
         let recaptchaWidgetId;
+        const PLACEHOLDER_KEY = "YOUR_RECAPTCHA_SITE_KEY";
 
         // Simulación de datos de respuesta (Mock Data) para pruebas antes de conectar la API
         const mockData = {
