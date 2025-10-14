@@ -504,30 +504,57 @@
 
 
         // Función de consulta
-        async function fetchScores(userKey) { 
-            // 1. Verificar Caché 
-            if (cache[userKey]) {
-                const data = cache[userKey];
-                data.cached = true;
-                return data;
-            }
+      // Función de consulta
+async function fetchScores(userKey) { 
+    // 1. Verificar Caché 
+    if (cache[userKey]) {
+        const data = cache[userKey];
+        data.cached = true; // El caché siempre tiene la estructura completa
+        return data;
+    }
 
-            // 2. Modo MOCK (Usando la URL de Ejemplo)
-            if (APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
-                const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, {
-                    method: 'POST',
-                    // CAMBIO: Se usa 'userKey' en el cuerpo
-                    body: JSON.stringify({ userKey: userKey, action: 'CONSULTA' }) 
-                });
+    // 2. Modo MOCK (Usando la URL de Ejemplo)
+    if (APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
+        const data = mockData[userKey];
+        if (data) {
+             // Simular timestamp del script
+            const now = new Date();
+            const formattedDate = `${now.toLocaleDateString("es-PE")} ${now.toLocaleTimeString("es-PE")}`;
+            
+            // Retorna la estructura completa (incluyendo DNI, que se espera en el mock)
+            return {...data, cached: false, Ultima_Consulta: formattedDate}; 
+        }
+        // Si no encuentra el mock, lanza un error para que el catch() principal lo tome.
+        throw new Error("Clave de usuario no encontrada o error simulado. Usa DNI + Inicial Apellido.");
+    }
 
-                if (apiResponse.success) {
-                    // Almacenar en caché y devolver
-                    cache[userKey] = apiResponse.data;
-                    return { ...apiResponse.data, cached: false };
-                } else {
-                     throw new Error(apiResponse.message || 'Clave de usuario no encontrada o error simulado.');
-                }
-            }
+    // 3. Modo REAL (Llamada al Google Apps Script via POST)
+    const options = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            userKey: userKey,
+            action: 'CONSULTA'
+        }) 
+    };
+
+    const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, options);
+    
+    if (apiResponse.success) {
+        // Validación extra: si 'success' es true, debe haber datos
+        if (!apiResponse.data) {
+             throw new Error("Respuesta exitosa, pero no se recibieron datos de notas.");
+        }
+
+        // Almacenar en caché y devolver
+        cache[userKey] = apiResponse.data;
+        // Se añade 'cached: false' aquí para indicar que es una respuesta fresca.
+        return {...apiResponse.data, cached: false}; 
+    } else {
+        // El script devolvió 'success: false' o falló la conexión
+        throw new Error(apiResponse.message || "No se pudo obtener la información. Verifica tu clave.");
+    }
+}
 
             // 3. Modo REAL (Llamada al Google Apps Script via POST) - No ejecutado aquí
             // ...
@@ -764,3 +791,4 @@
     </script>
 </body>
 </html>
+
