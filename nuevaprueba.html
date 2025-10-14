@@ -382,7 +382,7 @@
 
     <script>
         // La URL debe ser reemplazada con tu URL real de Google Apps Script
-        const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg/exec"; 
+        const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g/exec"; 
         
         // Simulación de datos de respuesta (Mock Data) para pruebas antes de conectar la API
         const mockData = {
@@ -526,7 +526,7 @@
             }
 
             // 2. Modo MOCK (Usando la URL de Ejemplo)
-            if (APP_SCRIPT_URL.includes("AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg")) {
+            if (APP_SCRIPT_URL.includes("AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g")) {
                 const data = mockData[userKey];
                 if (data) {
                      // Simular timestamp del script
@@ -566,7 +566,7 @@
             CONFIRM_EMAIL_BTN.disabled = true;
             
             // En modo mock, simular éxito/fallo
-            if (APP_SCRIPT_URL.includes("AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg")) {
+            if (APP_SCRIPT_URL.includes("AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g")) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
                 EMAIL_MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
@@ -804,4 +804,5 @@
     </script>
 </body>
 </html>
+
 
