@@ -443,7 +443,7 @@
             for (let i = 0; i < retries; i++) {
                 try {
                     // Si estamos en modo mock (usando la URL de ejemplo), simular latencia
-                    if (url.includes("AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg")) {
+                    if (url.includes("AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g")) {
                         await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 500)); 
                     }
                     
@@ -547,7 +547,7 @@
                 }) 
             };
 
-            const apiResponse = await exponentialBackoffFetch(AKfycbxSTcvWryL0BGs7lJcEuxqhlDTSCdbgV_jn51RsK0kLrpnKaAesGSj5X2OgatdQHBpr3w, options);
+            const apiResponse = await exponentialBackoffFetch(AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g, options);
             
             if (apiResponse.success) {
                 // Almacenar en caché y devolver
@@ -592,7 +592,7 @@
                         }) 
                     };
 
-                    const apiResponse = await exponentialBackoffFetch(AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg, options);
+                    const apiResponse = await exponentialBackoffFetch(AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g, options);
                     
                     EMAIL_MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
 
@@ -804,5 +804,3 @@
     </script>
 </body>
 </html>
-
-
