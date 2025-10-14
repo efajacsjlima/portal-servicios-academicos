@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- NOTA CRÍTICA: Se eliminó <base target="_top"> ya que ahora se aloja de forma estática. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consulta de Notas</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Asegura que la fuente Inter se cargue */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Estilos para los Modales */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* --- INICIO: REGLAS DE IMPRESIÓN (PARA MANTENER COLORES) --- */
+    @media print {
+      .bg-indigo-600, .bg-green-700, .bg-green-600, .bg-orange-600, .bg-red-600 {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .modal-overlay,
+      header,
+      footer,
+      #consultarBtn,
+      #dniInput,
+      #messageContainer,
+      .gap-3,
+      h1,
+      p.text-sm {
+        display: none !important;
+      }
+      main {
+        padding: 0 !important;
+        box-shadow: none !important;
+      }
+      body {
+        background-color: white !important;
+        min-height: auto !important;
+        padding: 0 !important;
+      }
+      /* Mostrar solo el bloque de resultados para imprimir */
+      #resultsContainer {
+        display: block !important;
+        padding: 0;
+      }
+      #securityMessage {
+        display: none !important; /* Ocultar mensaje de seguridad en la impresión */
+      }
+      /* Asegurar que el contenido impreso se vea bien */
+      #finalGradeContainer > div {
+        margin: 0 !important;
+        box-shadow: none !important;
+      }
+      .flex, .grid, .w-full {
+          display: block !important;
+      }
+      #practicasGrid div {
+          break-inside: avoid;
+      }
+    }
+    /* --- FIN: REGLAS DE IMPRESIÓN --- */
+  </style>
+</head>
+<body class="bg-gray-50 flex flex-col items-center p-4 sm:p-6 min-h-screen">
+
+  <!-- MODAL DE RECORDATORIO (Inicialmente oculto) -->
+  <div id="reminderModal" class="modal-overlay hidden">
+    <div class="modal-content text-center">
+      <!-- Ícono de Advertencia -->
+      <div class="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.427 2.783-1.427 3.548 0l2.768 5.165a2 2 0 01-.168 2.19l-4.2 3.636a2 2 0 01-2.22 0l-4.2-3.636a2 2 0 01-.168-2.19l2.768-5.165zM10 13a1 1 0 100-2 1 1 0 000 2zm0 4a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+        </svg>
+      </div>
+
+      <h3 class="text-xl font-extrabold text-gray-800 mb-4">Recordatorio Importante</h3>
+
+      <!-- Párrafos Justificados -->
+      <div class="text-left text-sm text-gray-700 space-y-4 text-justify">
+        <p>Su participación en las fechas establecidas para las prácticas calificadas, y el haber cumplido con al menos el **90% de la asistencia** a las sesiones meet, es fundamental en el proceso de certificación.</p>
+        <p>La asistencia es validada con el cruce del registro de salida e informe de permanencia de Google. Cualquier duda sobre el particular, debe ser consultada con la oficina de Coordinación Académica a través de la dirección efaja_csjlima@pj.gob.pe.</p>
+      </div>
+
+      <button
+        onclick="confirmarYConsultar()"
+        class="mt-6 w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition duration-200"
+      >
+        Entendido, mostrar mis resultados
+      </button>
+    </div>
+  </div>
+  <!-- FIN MODAL RECORDATORIO -->
+
+  <!-- MODAL DE ENVÍO DE CORREO (Inicialmente oculto) -->
+  <div id="emailModal" class="modal-overlay hidden">
+    <div class="modal-content text-left">
+      <h3 class="text-xl font-extrabold text-gray-800 mb-4 text-center">Enviar Notas por Correo</h3>
+
+      <div class="text-sm text-gray-600 mb-4">
+        <p>Ingresa la dirección de correo electrónico donde deseas recibir tus resultados. El correo será enviado por efaja_csjlima@pj.gob.pe.</p>
+      </div>
+
+      <label for="recipientEmailInput" class="block text-sm font-medium text-gray-700 mb-1">
+          Correo Electrónico Destino:
+      </label>
+      <input
+        type="email"
+        id="recipientEmailInput"
+        placeholder="ejemplo@dominio.com"
+        class="p-3 border-2 border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 text-base font-mono"
+      />
+      
+      <!-- Contenedor de mensajes del correo -->
+      <div id="emailMessageContainer"></div>
+
+      <div class="flex gap-3 mt-6">
+        <button
+          onclick="cancelSendEmail()"
+          class="flex-1 bg-gray-300 text-gray-800 font-semibold py-3 rounded-xl shadow-md hover:bg-gray-400 transition duration-200"
+        >
+          Cancelar
+        </button>
+        <button
+          id="sendEmailBtn"
+          onclick="sendEmailWrapper()"
+          class="flex-1 bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- FIN MODAL CORREO -->
+
+
+  <header class="w-full max-w-lg shadow-xl rounded-t-xl overflow-hidden">
+    <!-- Placeholder para el logo del curso -->
+    <img 
+      src="https://github.com/efajacsjlima/portal-servicios-academicos/blob/main/banner2_consulta_notas_curso_gdp.png?raw=true" 
+      alt="Encabezado del curso" 
+      class="w-full h-auto"
+    />
+  </header>
+
+  <main class="w-full max-w-lg bg-white p-6 rounded-b-none shadow-xl">
+    
+    <!-- Título y subtítulo centrados -->
+    <h1 class="text-2xl font-bold text-gray-800 mb-1 text-center">Consulta de Notas</h1>
+    <p class="text-sm text-gray-500 mb-6 text-center">
+      Identifícate con tu <b>DNI</b> para ver tus calificaciones.
+    </p>
+
+    <!-- Formulario de Consulta -->
+    <div class="flex flex-col gap-3 mb-6">
+      <input
+        type="text"
+        id="dniInput"
+        placeholder="Ej. 12345678"
+        class="p-3 border-2 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 text-base font-mono uppercase"
+        maxlength="8"
+      />
+      
+      <!-- Este botón ahora solo abre el modal -->
+      <button
+        id="consultarBtn"
+        onclick="abrirModal()"
+        class="flex justify-center items-center w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <span id="buttonIcon" class="mr-2">🔍</span>
+        <span id="buttonText">Consultar Notas</span>
+      </button>
+    </div>
+    
+    <!-- Contenedor de Mensajes de Error/Éxito -->
+    <div id="messageContainer" class="mb-6"></div>
+
+    <!-- Contenedor de Resultados (Inicialmente oculto) -->
+    <div id="resultsContainer" class="hidden">
+      <!-- Mensaje de Conexión Segura (se inserta aquí tras el éxito) -->
+      <div id="securityMessage" class="flex items-center p-3 mb-6 rounded-lg bg-green-100 text-green-700 font-medium">
+        <span class="mr-2">🔒</span>
+        Conexión segura establecida con la API de Google Apps Script.
+      </div>
+
+      <!-- Puntaje por Práctica -->
+      <h2 class="text-lg font-bold text-gray-700 mb-4">Puntuación por Práctica</h2>
+      <div id="practicasGrid" class="grid grid-cols-2 gap-4"> 
+        <!-- Notas de práctica se insertarán aquí -->
+      </div>
+
+      <!-- Nota Final (se insertará aquí) -->
+      <div id="finalGradeContainer"></div>
+
+      <!-- Botones movidos fuera del contenedor de nota final -->
+      <div class="flex gap-3 mt-5 w-full">
+          <!-- Botón Imprimir ahora funcional -->
+          <button onclick="window.print()" class="flex-1 bg-white text-gray-800 font-semibold py-2 rounded-lg shadow-md hover:bg-gray-100 transition duration-200 flex justify-center items-center border border-gray-300">
+              <span class="mr-2">🖨️</span> Imprimir
+          </button>
+          <!-- Botón Enviar por Correo abre el modal -->
+          <button onclick="showEmailModal()" class="flex-1 bg-white text-gray-800 font-semibold py-2 rounded-lg shadow-md hover:bg-gray-100 transition duration-200 flex justify-center items-center border border-gray-300">
+              <span class="mr-2">📧</span> Enviar a Correo
+          </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER (Pie de página) - Con el nuevo texto de créditos -->
+  <footer class="w-full max-w-lg bg-gray-700 text-center text-xs text-white p-3 rounded-b-xl shadow-xl">
+    Desarrollado por EFAJA Lima - 2025
+  </footer>
+
+  <script>
+    // =====================================================================================
+    // CRÍTICO: REEMPLAZA ESTA CADENA CON LA URL DE TU DESPLIEGUE DE GOOGLE APPS SCRIPT (Web App)
+    // =====================================================================================
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIVXb1WpM4dkxyr5dHVWpCZ028UkzOk5pBSHWDy1pouz4RwUfjZ99l_e5cSh-l_1foKA/exec';
+    // =====================================================================================
+
+    // Variables globales para el estado
+    let validatedDNI = null;
+    let lastParticipantData = null; // Almacena los datos del último participante consultado
+
+    // --- FUNCIONES DE CREACIÓN DE UI (Sin cambios) ---
+    function createNotaPracticaHTML(practica, color, icon) {
+      const nota = practica.nota;
+      const isNP = nota === 0;
+      const displayGrade = isNP ? 'NP' : nota;
+      const gradeClass = isNP ? 'text-4xl' : 'text-5xl';
+      const subText = isNP ? '<span class="text-xs font-semibold mt-1 opacity-80">NO PARTICIPÓ</span>' : '';
+      
+      const progressPercent = (nota / 20) * 100;
+      let bgColorClass;
+
+      if (color === 'blue') bgColorClass = 'bg-indigo-600';
+      else if (color === 'green') bgColorClass = 'bg-green-600';
+      else if (color === 'orange') bgColorClass = 'bg-orange-600';
+      else bgColorClass = 'bg-red-600';
+
+      return `
+        <div class="p-3 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] ${bgColorClass} text-white">
+          <div class="flex justify-between items-center text-sm font-semibold">
+            <span>${icon} ${practica.nombre}</span>
+            <span class="text-xs opacity-80">${practica.fecha}</span>
+          </div>
+          <div class="text-center my-2 h-16 flex flex-col justify-center items-center">
+            <div class="${gradeClass} font-extrabold leading-none">
+              ${displayGrade}
+            </div>
+            ${subText}
+          </div>
+          <div class="h-1 bg-white/50 rounded-full mt-3">
+            <div 
+              class="h-full rounded-full" 
+              style="width: ${progressPercent}%; background-color: white;"
+            ></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function createResultadoFinalHTML(participante, notaFinal, ultimaConsulta) {
+      const isApproved = notaFinal >= 14;
+      const progressPercent = Math.min(100, (notaFinal / 20) * 100);
+      
+      const containerColor = 'bg-green-700';
+      const approvalText = isApproved ? '¡Aprobado!' : '¡Desaprobado!';
+      const approvalClass = isApproved ? 'text-yellow-300' : 'text-orange-400'; 
+      const progressBarColor = isApproved ? '#fcd34d' : '#fb923c'; 
+
+      const encouragement = isApproved 
+          ? "¡Felicidades por tu esfuerzo!" 
+          : "Sigue esforzándote para la próxima.";
+
+      const fullName = `${participante.nombres.toUpperCase()} ${participante.apellidos.toUpperCase()}`;
+
+      return `
+        <div class="p-6 mt-6 rounded-2xl shadow-2xl transition-all transform ${containerColor} text-white">
+            
+            <!-- Nombre Completo -->
+            <h2 class="text-xl font-extrabold mb-3">
+                ${fullName}
+            </h2>
+            
+            <!-- DNI con rectángulo negro -->
+            <div class="flex items-center mb-4 bg-black bg-opacity-70 p-1 px-3 rounded-lg w-fit">
+                <p class="text-sm font-semibold mr-2 opacity-90">DNI:</p>
+                <span class="text-base font-bold">${participante.dni}</span>
+            </div>
+
+            <!-- Bloque de Nota y Títulos -->
+            <div class="flex flex-col">
+                <div class="mb-3">
+                    <!-- NOTA FINAL en negrita (extrabold) -->
+                    <p class="text-lg font-extrabold leading-tight">
+                        <span class="inline mr-1">📈</span> NOTA FINAL
+                    </p>
+                    <!-- Promedio redondeado en texto más pequeño -->
+                    <p class="text-sm opacity-90">
+                        Promedio redondeado
+                    </p>
+                </div>
+                
+                <!-- Nota Grande y Texto de Aprobación DEBAJO -->
+                <div class="flex flex-col items-start">
+                    <p class="text-7xl font-black leading-none my-0">
+                        ${notaFinal}
+                    </p>
+                    <div class="font-bold text-xl mt-1 ${approvalClass} ml-1">
+                        ${approvalText}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ESPACIO REDUCIDO (mt-2 para juntar más) -->
+            <p class="text-sm italic mt-2 mb-3">
+                ${encouragement}
+            </p>
+            
+            <!-- Barra de progreso con color dinámico -->
+            <div class="h-2 w-full bg-white/30 rounded-full overflow-hidden mb-4">
+                <div 
+                    class="h-full rounded-full transition-all duration-1000" 
+                    style="width: ${progressPercent}%; background-color: ${progressBarColor};"
+                ></div>
+            </div>
+
+            <!-- Última consulta -->
+            <p class="text-xs opacity-70 flex items-center mt-3">
+                <span class="mr-1">🕒</span> Última consulta: ${ultimaConsulta || "N/A"} (Sistema)
+            </p>
+        </div>
+      `;
+    }
+
+    function displayMessage(text, isError = false) {
+      const container = document.getElementById('messageContainer');
+      const icon = isError ? '⚠️' : '✅';
+      const bgColor = isError ? 'bg-red-100 text-red-700 border-red-300' : 'bg-green-100 text-green-700 border-green-300';
+      
+      if (isError) {
+          container.innerHTML = `
+              <div class="flex items-center p-3 rounded-lg ${bgColor} font-medium border">
+                  <span class="mr-2">${icon}</span>
+                  ${text}
+              </div>
+          `;
+      } else {
+          container.innerHTML = ''; 
+      }
+    }
+    // --- FIN FUNCIONES DE CREACIÓN DE UI ---
+
+
+    // --- LÓGICA DEL MODAL DE CORREO ---
+    function showEmailModal() {
+        if (!lastParticipantData) {
+            displayMessage("Error: Consulta tus notas primero.", true);
+            return;
+        }
+        document.getElementById('emailModal').classList.remove('hidden');
+        
+        // Pre-llenar el input con el correo del participante si está disponible
+        const emailInput = document.getElementById('recipientEmailInput');
+        emailInput.value = lastParticipantData.correo || '';
+        displayEmailMessage(''); // Limpiar mensajes previos
+    }
+
+    function cancelSendEmail() {
+        document.getElementById('emailModal').classList.add('hidden');
+    }
+
+    function displayEmailMessage(text, isError = false) {
+        const container = document.getElementById('emailMessageContainer');
+        const sendBtn = document.getElementById('sendEmailBtn');
+        const bgColor = isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
+        const icon = isError ? '⚠️' : '✅';
+        
+        // Restablecer el botón de envío si se muestra un mensaje
+        if (text) {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Enviar';
+        }
+
+        container.innerHTML = text ? `
+            <div class="p-2 mt-2 rounded-lg ${bgColor} text-sm font-medium">
+                <span class="mr-1">${icon}</span>
+                ${text}
+            </div>
+        ` : '';
+    }
+
+    /**
+     * Envía la petición HTTP POST a la Apps Script para ejecutar sendNoteByEmail.
+     */
+    async function sendEmailWrapper() {
+        const emailInput = document.getElementById('recipientEmailInput');
+        const recipientEmail = emailInput.value.trim();
+        const sendBtn = document.getElementById('sendEmailBtn');
+
+        if (!recipientEmail || !/\S+@\S+\.\S+/.test(recipientEmail)) {
+            displayEmailMessage("Error: Ingresa un correo electrónico válido.", true);
+            return;
+        }
+
+        if (!lastParticipantData) {
+            displayEmailMessage("Error interno: Datos del participante no disponibles.", true);
+            return;
+        }
+
+        // Validación de URL
+        if (GOOGLE_APPS_SCRIPT_URL.includes('https://script.google.com/macros/s/AKfycbyIVXb1WpM4dkxyr5dHVWpCZ028UkzOk5pBSHWDy1pouz4RwUfjZ99l_e5cSh-l_1foKA/exec')) {
+             displayEmailMessage("Error de configuración: Debes reemplazar 'https://script.google.com/macros/s/AKfycbyIVXb1WpM4dkxyr5dHVWpCZ028UkzOk5pBSHWDy1pouz4RwUfjZ99l_e5cSh-l_1foKA/exec' con la URL de despliegue de tu Apps Script.", true);
+             return;
+        }
+
+        // Mostrar estado de carga
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Enviando...';
+        displayEmailMessage("Procesando envío...", false);
+        
+        try {
+            const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'sendEmail', // Indicamos la acción al Apps Script
+                    recipientEmail: recipientEmail,
+                    participantData: lastParticipantData
+                }),
+            });
+            
+            const result = await response.json();
+
+            if (result.error) {
+                displayEmailMessage(result.error, true);
+            } else {
+                displayEmailMessage(`Éxito: La nota ha sido enviada a ${result.recipient || 'el destinatario'}.`, false);
+                setTimeout(cancelSendEmail, 2000); // Cerrar después de 2 segundos
+            }
+
+        } catch (error) {
+            console.error('Error en la llamada fetch (correo):', error);
+            displayEmailMessage('Error de red o del servidor al enviar el correo.', true);
+        }
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Enviar';
+    }
+    // --- FIN LÓGICA DEL MODAL DE CORREO ---
+
+
+    // --- LÓGICA PRINCIPAL DE LA APLICACIÓN ---
+    function abrirModal() {
+      const dniInput = document.getElementById('dniInput');
+      let dni = dniInput.value.trim().toUpperCase();
+      
+      displayMessage('');
+      document.getElementById('resultsContainer').classList.add('hidden');
+      lastParticipantData = null; // Limpiar datos anteriores
+      
+      // VALIDACIÓN: 7 u 8 dígitos numéricos
+      if (!/^\d{7,8}$/.test(dni)) {
+        displayMessage("Error: El DNI debe ser de **7 u 8 dígitos numéricos**.", true);
+        return;
+      }
+      
+      // Normalización: Relleno con cero si es de 7 dígitos para la búsqueda en la hoja
+      if (dni.length === 7) {
+        dni = '0' + dni;
+      }
+
+      // Almacenar el DNI normalizado y abrir el modal
+      validatedDNI = dni;
+      document.getElementById('reminderModal').classList.remove('hidden');
+    }
+    
+    function confirmarYConsultar() {
+        document.getElementById('reminderModal').classList.add('hidden');
+        if (validatedDNI) {
+            iniciarConsulta(validatedDNI);
+        } else {
+            displayMessage("Error interno: DNI no validado correctamente.", true);
+        }
+    }
+
+    /**
+     * Envía la petición HTTP POST a la Apps Script para ejecutar consultarNotasAndSave.
+     */
+    async function iniciarConsulta(dni) {
+      const consultarBtn = document.getElementById('consultarBtn');
+      const buttonText = document.getElementById('buttonText');
+      const buttonIcon = document.getElementById('buttonIcon');
+      
+      // Mostrar estado de carga
+      consultarBtn.disabled = true;
+      buttonText.textContent = 'Consultando...';
+      buttonIcon.innerHTML = '🔄'; 
+      
+      // Validación de URL
+      if (GOOGLE_APPS_SCRIPT_URL.includes('https://script.google.com/macros/s/AKfycbyIVXb1WpM4dkxyr5dHVWpCZ028UkzOk5pBSHWDy1pouz4RwUfjZ99l_e5cSh-l_1foKA/exec')) {
+             onFailure("Error de configuración: Debes reemplazar 'https://script.google.com/macros/s/AKfycbyIVXb1WpM4dkxyr5dHVWpCZ028UkzOk5pBSHWDy1pouz4RwUfjZ99l_e5cSh-l_1foKA/exec' con la URL de despliegue de tu Apps Script.");
+             return;
+      }
+
+      try {
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                // Es crucial para que Apps Script pueda leer e.postData.contents como JSON
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'consultarNotas', // Indicamos la acción al Apps Script
+                dni: dni
+            }),
+        });
+        
+        // Si la respuesta no es OK, lanzamos un error
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        onSuccess(result);
+
+      } catch (error) {
+        console.error('Error en la llamada fetch (consulta):', error);
+        onFailure(`Error de red o del servidor: ${error.message}.`);
+      }
+    }
+
+    // Maneja la respuesta exitosa (desde la API de GAS)
+    function onSuccess(response) {
+      const consultarBtn = document.getElementById('consultarBtn');
+      const resultsContainer = document.getElementById('resultsContainer');
+      const buttonText = document.getElementById('buttonText');
+      const buttonIcon = document.getElementById('buttonIcon');
+
+      // Restablecer botón
+      consultarBtn.disabled = false;
+      buttonText.textContent = 'Consultar Notas';
+      buttonIcon.innerHTML = '🔍';
+      
+      if (response.error) {
+        displayMessage(response.error, true);
+        resultsContainer.classList.add('hidden');
+        lastParticipantData = null; // Limpiar datos si hay error
+        return;
+      }
+
+      // --- ALMACENAR DATOS ---
+      lastParticipantData = response; 
+      // --- FIN ALMACENAR DATOS ---
+
+      const practicas = response.practicas;
+      const icons = ['★', '★', '★', '★'];
+      
+      const practicasHtml = practicas.map((p, index) => 
+        createNotaPracticaHTML(p, ['blue', 'green', 'orange', 'red'][index], icons[index])
+      ).join('');
+
+      document.getElementById('practicasGrid').innerHTML = practicasHtml;
+
+      document.getElementById('finalGradeContainer').innerHTML = 
+        createResultadoFinalHTML(response, response.nota_final, response.ultima_consulta);
+
+      resultsContainer.classList.remove('hidden');
+      displayMessage("¡Consulta exitosa! Datos obtenidos de la base de Google.", false);
+    }
+
+    // Maneja fallos en la llamada al servidor (fetch)
+    function onFailure(error) {
+      const consultarBtn = document.getElementById('consultarBtn');
+      const resultsContainer = document.getElementById('resultsContainer');
+      const buttonText = document.getElementById('buttonText');
+      const buttonIcon = document.getElementById('buttonIcon');
+
+      // Restablecer botón
+      consultarBtn.disabled = false;
+      buttonText.textContent = 'Consultar Notas';
+      buttonIcon.innerHTML = '🔍';
+      
+      displayMessage("Error de conexión: " + error, true);
+      resultsContainer.classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
