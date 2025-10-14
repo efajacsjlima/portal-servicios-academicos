@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Notas</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- SIN RECAPTCHA: Esta versión es estable y funcional en GitHub Pages. -->
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#1e40af',
+                        'success-green': '#10b981',
+                        'failure-red': '#ef4444',
+                        'bg-light': '#f9fafb',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Clase para animación de fade-in */
+        .fade-in {
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Estilo para los inputs */
+        input:focus {
+            outline: none;
+            border-color: #1e40af;
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.5); /* Sombra de foco azul */
+        }
+
+        /* Estilos del Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50; /* Tailwind z-50 */
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+            pointer-events: none;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            transform: scale(0.9);
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+        
+        /* Ocultar formulario, botones de acción y footer en la impresión */
+        @media print {
+            #consultForm, #actionButtons, footer {
+                display: none;
+            }
+            #app-container {
+                box-shadow: none;
+                border: none;
+                padding: 0;
+            }
+            body {
+                background-color: white;
+            }
+            /* Asegurar que la tarjeta de resultados se vea bien al imprimir */
+            #resultsContainer {
+                opacity: 1 !important;
+                pointer-events: auto !important;
+            }
+            #summaryCard {
+                box-shadow: none !important;
+                background-color: white !important; /* Fondo blanco para imprimir */
+                color: black !important;
+                border: 1px solid #ccc;
+            }
+            #summaryCard * {
+                color: black !important;
+            }
+            .bg-indigo-600, .bg-emerald-600, .bg-orange-600, .bg-rose-600 {
+                background-color: #f0f0f0 !important;
+                color: black !important;
+            }
+            .score-bar {
+                background-color: #ddd !important; /* Fondo gris claro para barra en impresión */
+            }
+            .score-bar-fill {
+                background-color: #000 !important; /* Relleno negro para barra en impresión */
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+    
+    <!-- ENCABEZADO DEL SITIO (BANNER) -->
+    <div class="w-full max-w-lg rounded-t-xl overflow-hidden shadow-xl">
+        <img src="https://raw.githubusercontent.com/efajacsjlima/portal-servicios-academicos/refs/heads/main/bannerweb_consulta_notas_curso_gdp.png" 
+             alt="Logo del Curso" 
+             class="w-full h-auto object-cover" 
+             onerror="this.onerror=null;this.src='https://placehold.co/600x120/9ca3af/ffffff?text=LOGO+NO+DISPONIBLE';" />
+    </div>
+    <!-- FIN ENCABEZADO DEL SITIO -->
+
+    <!-- Modal de Recordatorio de Asistencia (INICIO) - Diseño Profesional -->
+    <div id="reminderModal" class="modal-overlay">
+        <div class="modal-content bg-white rounded-xl shadow-2xl max-w-sm w-11/12 p-6">
+            <div class="flex flex-col items-center">
+                <div class="bg-yellow-500 rounded-full p-3 mb-4">
+                    <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.807-1.472 2.158-2.91L13.88 4.298c-.465-1.045-1.928-1.045-2.393 0L3.084 15.09c-.649 1.438.61 2.91 2.157 2.91z" />
+                    </svg>
+                </div>
+
+                <h3 class="text-2xl font-bold text-gray-800 mb-3 text-center">
+                    Recordatorio Importante
+                </h3>
+                
+                 <p class="text-sm text-gray-600 mb-3 text-center">
+                    Su participación en las fechas establecidas para las prácticas calificadas, y haber cumplido con al menos el **90% de asistencia** a las sesiones meet, es fundamental en el proceso de certificación.
+                </p>
+                <p class="text-xs text-gray-500 mb-6 text-center">
+                    La asistencia es validada con el cruce de registro de salida y el informe de tiempo de Google. Cualquier duda sobre el particular, debe ser consultada con la oficina Académica a través de la siguiente dirección; efaja_csjlima@pj.gob.pe
+                </p>
+
+                <button id="closeModalBtn" class="w-full bg-primary-blue text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-md">
+                    Entendido, mostrar mis resultados
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal de Recordatorio de Asistencia (FIN) -->
+    
+    <!-- Modal de Envío de Correo (INICIO) -->
+    <div id="emailModal" class="modal-overlay">
+        <div class="modal-content bg-white rounded-xl shadow-2xl max-w-sm w-11/12 p-6">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">
+                Enviar Notas por Correo
+            </h3>
+            <p class="text-sm text-gray-600 mb-4 text-center">
+                Ingresa la dirección de correo electrónico a donde deseas enviar el detalle de tus calificaciones.
+            </p>
+
+            <input type="email" id="recipientEmailInput" placeholder="correo@ejemplo.com" 
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue text-base shadow-sm mb-4"
+                   required />
+
+            <div id="emailMessageContainer" class="p-2 rounded-lg text-center font-medium hidden text-sm transition duration-300 mb-4"></div>
+
+            <div class="flex justify-between space-x-3">
+                <button id="cancelEmailBtn" 
+                        class="w-1/2 bg-gray-300 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-400 transition duration-300 ease-in-out">
+                    Cancelar
+                </button>
+                <button id="confirmEmailBtn" 
+                        class="w-1/2 bg-success-green text-white font-semibold py-3 rounded-lg hover:bg-emerald-700 transition duration-300 ease-in-out shadow-md flex items-center justify-center disabled:opacity-50">
+                    <span id="emailButtonText">Enviar Resultados</span>
+                    <div id="emailLoadingSpinner" class="hidden w-5 h-5 border-2 border-t-2 border-white rounded-full animate-spin ml-2"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal de Envío de Correo (FIN) -->
+
+
+    <!-- El contenedor principal ahora tiene rounded-b-xl para que se vea como una continuación del banner -->
+    <div id="app-container" class="w-full max-w-lg bg-white shadow-2xl rounded-b-xl transition duration-500 ease-in-out">
+        <div class="p-8">
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-extrabold text-gray-800">Consulta de Notas</h1>
+                <p class="text-gray-500 mt-1">Identifícate con tu DNI + la inicial de tu apellido para ver tus calificaciones.</p>
+            </header>
+
+            <!-- Formulario de Consulta (Vertical: Botón debajo del input) -->
+            <form id="consultForm" class="flex flex-col gap-3">
+                
+                <input type="text" id="dniInput" title="Por favor, ingresa tu usuario para continuar." placeholder="Ejemplo: 12345678A" 
+                       class="p-3 border border-gray-300 rounded-lg focus:ring-primary-blue focus:border-primary-blue text-lg uppercase shadow-sm transition duration-150"
+                       maxlength="9" required />
+                
+                <button type="submit" id="consultBtn" 
+                        class="bg-primary-blue text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out shadow-lg flex items-center justify-center disabled:opacity-50">
+                    <span id="buttonText">Consultar Notas</span>
+                    <div id="loadingSpinner" class="hidden w-5 h-5 border-2 border-t-2 border-white rounded-full animate-spin ml-2"></div>
+                </button>
+            </form>
+
+            <!-- Contenedor de Mensajes (Errores/Éxito) -->
+            <div id="messageContainer" class="mt-4 p-3 rounded-lg font-medium hidden transition duration-300 border-l-4"></div>
+
+            <!-- Contenedor de Resultados (Inicialmente oculto) -->
+            <div id="resultsContainer" class="mt-6 space-y-6 opacity-0 pointer-events-none transition-opacity duration-500">
+                
+                <!-- DETALLE DE PRÁCTICAS (Grid 2x2 - FORMATO LLAMATIVO Y PULIDO) -->
+                <div class="p-5 bg-bg-light rounded-xl shadow-xl border border-gray-200">
+                    <h2 class="text-xl font-extrabold text-gray-700 mb-5 text-center">
+                        Puntuación por Práctica
+                    </h2>
+                    <!-- Grid 2x2 con colores y sombras fuertes -->
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        
+                        <!-- Práctica 1 - Azul fuerte -->
+                        <div id="p1Card" class="p-4 bg-indigo-600 rounded-xl shadow-xl transition duration-300 flex flex-col justify-between items-center h-full">
+                            <p class="text-lg font-semibold flex items-center justify-center text-white mb-0.5">
+                                <svg class="w-4 h-4 mr-1 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                                </svg>
+                                1ª Práctica
+                                <svg class="w-4 h-4 ml-1 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                                </svg>
+                            </p>
+                            <p class="text-sm font-medium mb-2 text-white/90">10/09/2025</p>
+                            <p id="p1Score" class="text-5xl font-extrabold text-white mt-1 leading-none"></p>
+                            <!-- Barra de Progreso -->
+                            <div class="score-bar w-full h-2 bg-white/30 rounded-full mt-3 overflow-hidden">
+                                <div id="p1Bar" class="score-bar-fill h-full bg-white transition-all duration-700 ease-out"></div>
+                            </div>
+                        </div>
+
+                        <!-- Práctica 2 - Verde fuerte -->
+                        <div id="p2Card" class="p-4 bg-emerald-600 rounded-xl shadow-xl transition duration-300 flex flex-col justify-between items-center h-full">
+                             <p class="text-lg font-semibold flex items-center justify-center text-white mb-0.5">
+                                <svg class="w-4 h-4 mr-1 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                                </svg>
+                                2ª Práctica
+                                <svg class="w-4 h-4 ml-1 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                                </svg>
+                            </p>
+                            <p class="text-sm font-medium mb-2 text-white/90">17/09/2025</p>
+                            <p id="p2Score" class="text-5xl font-extrabold text-white mt-1 leading-none"></p>
+                            <!-- Barra de Progreso -->
+                            <div class="score-bar w-full h-2 bg-white/30 rounded-full mt-3 overflow-hidden">
+                                <div id="p2Bar" class="score-bar-fill h-full bg-white transition-all duration-700 ease-out"></div>
+                            </div>
+                        </div>
+
+                        <!-- Práctica 3 - Amarillo/Naranja fuerte -->
+                        <div id="p3Card" class="p-4 bg-orange-600 rounded-xl shadow-xl transition duration-300 flex flex-col justify-between items-center h-full">
+                             <p class="text-lg font-semibold flex items-center justify-center text-white mb-0.5">
+                                <svg class="w-4 h-4 mr-1 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                                </svg>
+                                3ª Práctica
+                                <svg class="w-4 h-4 ml-1 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                                </svg>
+                            </p>
+                            <p class="text-sm font-medium mb-2 text-white/90">24/09/2025</p>
+                            <p id="p3Score" class="text-5xl font-extrabold text-white mt-1 leading-none"></p>
+                            <!-- Barra de Progreso -->
+                            <div class="score-bar w-full h-2 bg-white/30 rounded-full mt-3 overflow-hidden">
+                                <div id="p3Bar" class="score-bar-fill h-full bg-white transition-all duration-700 ease-out"></div>
+                            </div>
+                        </div>
+
+                        <!-- Práctica 4 - Rojo fuerte -->
+                        <div id="p4Card" class="p-4 bg-rose-600 rounded-xl shadow-xl transition duration-300 flex flex-col justify-between items-center h-full">
+                             <p class="text-lg font-semibold flex items-center justify-center text-white mb-0.5">
+                                <svg class="w-4 h-4 mr-1 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                                </svg>
+                                4ª Práctica
+                                <svg class="w-4 h-4 ml-1 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.21A1.5 1.5 0 0113.123 2.15l1.83 3.705a1.5 1.5 0 001.127.818l4.097.595a1.5 1.5 0 01.833 2.544l-2.964 2.895a1.5 1.5 0 00-.433 1.332l.707 4.088a1.5 1.5 0 01-2.17.814L12 18.067l-3.666 1.93a1.5 1.5 0 01-2.17-.814l.707-4.088a1.5 1.5 0 00-.433-1.332L2.09 7.858a1.5 1.5 0 01.833-2.544l4.097-.595a1.5 1.5 0 001.127-.818l1.83-3.705a1.5 1.5 0 012.074.056z" />
+                                </svg>
+                            </p>
+                            <p class="text-sm font-medium mb-2 text-white/90">01/10/2025</p>
+                            <p id="p4Score" class="text-5xl font-extrabold text-white mt-1 leading-none"></p>
+                            <!-- Barra de Progreso -->
+                            <div class="score-bar w-full h-2 bg-white/30 rounded-full mt-3 overflow-hidden">
+                                <div id="p4Bar" class="score-bar-fill h-full bg-white transition-all duration-700 ease-out"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TARJETA ÚNICA DE RESUMEN (Nota Final con Icono de Trofeo) -->
+                <div id="summaryCard" class="p-6 rounded-xl shadow-lg transition duration-300 ease-in-out">
+                    <!-- Contenedor para alinear todo el texto a la izquierda -->
+                    <div class="summary-content-wrapper text-left">
+                        
+                        <p id="studentNameDisplay" class="text-3xl font-bold text-white mb-0"></p>
+                        
+                        <!-- RECTÁNGULO DE DNI -->
+                        <div id="dniDisplayContainer" class="bg-white/30 rounded-lg p-2 inline-block mb-0">
+                            <p id="dniDisplay" class="text-lg font-semibold text-white/90 leading-none">
+                                <!-- Contenido se llenará con JS -->
+                            </p>
+                        </div>
+                        <!-- FIN RECTÁNGULO DE DNI -->
+                        
+                        <!-- Bloque NOTA FINAL y Promedio Redondeado -->
+                        <div class="flex flex-col items-start justify-start w-full mt-1">
+                            <p class="font-semibold text-xl text-white flex items-center justify-start leading-tight">
+                                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                NOTA FINAL
+                            </p>
+                            <p class="text-sm font-bold text-white opacity-80 leading-none mb-1">
+                                (Promedio Redondeado)
+                            </p>
+                        </div>
+
+                        <!-- Puntaje Grande -->
+                        <p id="finalScore" class="text-8xl font-extrabold text-white mt-0 mb-0 leading-none"></p>
+                        
+                        <!-- Estado de Aprobación -->
+                        <p id="finalStatus" class="font-medium text-white opacity-90 mt-2">
+                            <!-- Contenido se llena con JS -->
+                        </p>
+                        
+                        <!-- Barra de Progreso Final (fondo oscuro, relleno blanco) -->
+                        <div id="finalProgressBarBg" class="w-full h-2 bg-black/30 rounded-full mt-4 overflow-hidden">
+                            <div id="finalProgressBarFill" class="score-bar-fill h-full bg-white transition-all duration-700 ease-out"></div>
+                        </div>
+
+                        <!-- Pie de página de consulta -->
+                        <div class="text-sm mt-4 pt-2 border-t border-white/30 text-white opacity-75">
+                            <p id="lastNoteConsult" class="text-left leading-tight">Última consulta: Nunca</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botones de Acción: Imprimir y Correo -->
+                <div id="actionButtons" class="hidden flex justify-center space-x-4 mt-6 print:hidden">
+                    <button id="printBtn" 
+                            class="bg-gray-100 text-gray-700 font-semibold py-3 px-6 rounded-lg hover:bg-gray-200 transition duration-300 ease-in-out shadow-md flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z" />
+                        </svg>
+                        Imprimir
+                    </button>
+                    
+                    <button id="mailBtn" 
+                            class="bg-gray-100 text-gray-700 font-semibold py-3 px-6 rounded-lg hover:bg-gray-200 transition duration-300 ease-in-out shadow-md flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.84 5.25A2 2 0 0013.16 13.25L21 8m-1 10a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h12a2 2 0 012 2v10z" />
+                        </svg>
+                        Enviar a Correo
+                    </button>
+                </div>
+                
+            </div>
+        </div>
+        
+        <!-- Franja de Créditos Integrada -->
+        <footer class="w-full bg-primary-blue py-3 px-8 rounded-b-xl text-center shadow-inner">
+            <p class="text-xs text-white/70 font-medium">
+                Sistema desarrollado por el Área de Tecnología de EFAJA Lima.
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // La URL debe ser reemplazada con tu URL real de Google Apps Script
+        const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg/exec"; 
+        
+        // Simulación de datos de respuesta (Mock Data) para pruebas antes de conectar la API
+        const mockData = {
+            '12345678C': {
+                Nombre: 'CARLOS GÓMEZ',
+                DNI: '12345678',
+                Practica_1: 18, Practica_2: 17, Practica_3: 16, Practica_4: 18,
+                Nota_Final: 17.25,
+            },
+            '98765432L': {
+                Nombre: 'ANA LÓPEZ',
+                DNI: '98765432',
+                Practica_1: 13, Practica_2: 14, Practica_3: 12, Practica_4: 13,
+                Nota_Final: 13.00,
+            },
+            // DNI de prueba DESAPROBADO con NP (Nota 0) para P1
+            '55556666J': {
+                Nombre: 'JORGE RÍOS',
+                DNI: '55556666',
+                Practica_1: 0, Practica_2: 11, ProcesarConsultaNotas: 10, Practica_4: 11,
+                Nota_Final: 8.00, // (0+11+10+11)/4
+            }
+        };
+
+        const cache = {}; // Cache de sesión para evitar peticiones repetidas
+        // Variables DOM sin inicializar al inicio, se inicializan en window.onload
+        let FORM, INPUT, BTN, SPINNER, BTN_TEXT, MESSAGE_CONTAINER, RESULTS_CONTAINER, SUMMARY_CARD, REMINDER_MODAL, CLOSE_MODAL_BTN, APPROVAL_THRESHOLD, ACTION_BUTTONS, DNI_DISPLAY, EMAIL_MODAL, CANCEL_EMAIL_BTN, CONFIRM_EMAIL_BTN, RECIPIENT_EMAIL_INPUT, EMAIL_SPINNER, EMAIL_BTN_TEXT, EMAIL_MESSAGE_CONTAINER;
+        let currentStudentName = ''; 
+        let currentDNI = '';
+        let currentEmailStatus = null; // Para guardar el estado actual del envío de correo
+
+        // Función de utilidad para manejar modales
+        function toggleModal(modal, show) {
+            if (show) {
+                modal.classList.add('active');
+            } else {
+                modal.classList.remove('active');
+            }
+        }
+
+        // Función que muestra el modal de recordatorio y espera a que el usuario presione 'Entendido'
+        function showReminderModal() {
+            return new Promise(resolve => {
+                toggleModal(REMINDER_MODAL, true);
+                
+                const handler = () => {
+                    toggleModal(REMINDER_MODAL, false);
+                    CLOSE_MODAL_BTN.removeEventListener('click', handler);
+                    resolve();
+                };
+
+                CLOSE_MODAL_BTN.addEventListener('click', handler);
+            });
+        }
+        
+        // Función de utilidad para manejar reintentos y simular latencia
+        async function exponentialBackoffFetch(url, options, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    // Si estamos en modo mock (usando la URL de ejemplo), simular latencia
+                    if (url.includes("AKfycbxSTcvWryL0BGs7lJcEuxqhlDTSCdbgV_jn51RsK0kLrpnKaAesGSj5X2OgatdQHBpr3w")) {
+                        await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 500)); 
+                    }
+                    
+                    // AHORA INCLUIMOS HEADERS para SEGURIDAD
+                    const fetchOptions = {
+                        method: options.method,
+                        headers: { 'Content-Type': 'application/json' }, // Mantenemos el encabezado JSON
+                        body: options.body 
+                    };
+                    
+                    const response = await fetch(url, fetchOptions); 
+                    
+                    // Verificación estricta de la red. Si el script responde, incluso con un error lógico, 
+                    // debería ser 200 OK.
+                    if (response.status !== 200) { 
+                        throw new Error(`Error de conexión HTTP: Código ${response.status}`);
+                    }
+                    
+                    const text = await response.text();
+                    
+                    // Intentamos parsear el JSON. Si falla, significa que el script no devolvió un JSON válido.
+                    try {
+                        return JSON.parse(text); 
+                    } catch (e) {
+                         // Esto captura el error "JSON.parse: unexpected end of data"
+                         throw new Error(`Error de formato JSON: La respuesta del servidor fue inválida o incompleta.`);
+                    }
+
+                } catch (error) {
+                    console.error(`Fetch attempt ${i + 1} failed:`, error);
+                    // Si el error es de red (NetworkError) O un error de JSON inválido
+                    if (i === retries - 1) throw error;
+                    // Espera exponencial antes de reintentar (1s, 2s, 4s...)
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                }
+            }
+        }
+
+        // Función que aplica estilos a la puntuación de una práctica
+        function applyScoreStyles(scoreElement, barElement, score) {
+            scoreElement.classList.remove('text-success-green', 'text-failure-red', 'text-orange-500', 'text-blue-500', 'text-4xl', 'text-5xl', 'font-extrabold', 'font-normal');
+            scoreElement.innerHTML = ''; // Limpia contenido
+            
+            let barWidth = (score / 20) * 100;
+            if (barWidth > 100) barWidth = 100; // Máximo 20
+
+            // Lógica para manejar NP
+            if (score === 0) {
+                scoreElement.classList.add('text-4xl', 'font-normal');
+                scoreElement.innerHTML = 'NP<span class="text-sm font-light block leading-none">(No participó)</span>';
+                barWidth = 0;
+            } else {
+                scoreElement.classList.add('text-5xl', 'font-extrabold');
+                scoreElement.textContent = score;
+            }
+
+            barElement.style.width = `${barWidth}%`;
+            
+            // Aplicar el color de texto (aunque ya se fuerza a blanco en el HTML/CSS)
+            scoreElement.classList.add('text-white');
+        }
+        
+        // Función que aplica estilos a la barra de nota final
+        function applyFinalScoreBar(score) {
+            const finalScore = score || 0;
+            let barWidth = (finalScore / 20) * 100;
+            if (barWidth > 100) barWidth = 100; 
+
+            document.getElementById('finalProgressBarFill').style.width = `${barWidth}%`;
+        }
+
+
+        // Función de consulta
+        async function fetchScores(userKey) { 
+            // 1. Verificar Caché 
+            if (cache[userKey]) {
+                const data = cache[userKey];
+                data.cached = true;
+                return data;
+            }
+
+            // 2. Modo MOCK (Usando la URL de Ejemplo)
+            if (APP_SCRIPT_URL.includes("AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg")) {
+                const data = mockData[userKey];
+                if (data) {
+                     // Simular timestamp del script
+                    const now = new Date();
+                    const formattedDate = `${now.toLocaleDateString("es-PE")} ${now.toLocaleTimeString("es-PE")}`;
+                    return {...data, cached: false, Ultima_Consulta: formattedDate}; 
+                }
+                throw new Error("Clave de usuario no encontrada o error simulado. Usa DNI + Inicial Apellido.");
+            }
+
+            // 3. Modo REAL (Llamada al Google Apps Script via POST)
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    userKey: userKey,
+                    action: 'CONSULTA'
+                }) 
+            };
+
+            const apiResponse = await exponentialBackoffFetch(AKfycbxSTcvWryL0BGs7lJcEuxqhlDTSCdbgV_jn51RsK0kLrpnKaAesGSj5X2OgatdQHBpr3w, options);
+            
+            if (apiResponse.success) {
+                // Almacenar en caché y devolver
+                cache[userKey] = apiResponse.data;
+                return {...apiResponse.data, cached: false, DNI: apiResponse.data.DNI}; // DNI viene del script
+            } else {
+                // El script devolvió 'success: false'
+                throw new Error(apiResponse.message || "No se pudo obtener la información. Verifica tu clave.");
+            }
+        }
+        
+        // Función que maneja el envío real del correo electrónico
+        async function sendScoreEmail(email) {
+            EMAIL_BTN_TEXT.textContent = 'Enviando...';
+            EMAIL_SPINNER.classList.remove('hidden');
+            CONFIRM_EMAIL_BTN.disabled = true;
+            
+            // En modo mock, simular éxito/fallo
+            if (APP_SCRIPT_URL.includes("AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg")) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                EMAIL_MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+                if (email.includes('@')) {
+                    EMAIL_MESSAGE_CONTAINER.classList.add('bg-green-100', 'text-green-700');
+                    EMAIL_MESSAGE_CONTAINER.textContent = `Éxito. Correo simulado enviado a ${email}.`;
+                    currentEmailStatus = 'success';
+                } else {
+                    EMAIL_MESSAGE_CONTAINER.classList.add('bg-red-100', 'text-red-700');
+                    EMAIL_MESSAGE_CONTAINER.textContent = `Error: La dirección ${email} es inválida.`;
+                    currentEmailStatus = 'error';
+                }
+            } else {
+                // Modo Real: Llamada al Apps Script para enviar el email
+                try {
+                    const options = {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            userKey: INPUT.value.toUpperCase().trim(),
+                            email: email,
+                            action: 'EMAIL'
+                        }) 
+                    };
+
+                    const apiResponse = await exponentialBackoffFetch(AKfycbyB8EvUxl36OFccdbzYFOoIqQWKBBibpHOtEQCKfGXi7A2pkjkdglpZ_lh5bTJ8G-Z5fg, options);
+                    
+                    EMAIL_MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+
+                    if (apiResponse.success) {
+                        EMAIL_MESSAGE_CONTAINER.classList.add('bg-green-100', 'text-green-700');
+                        EMAIL_MESSAGE_CONTAINER.textContent = apiResponse.message;
+                        currentEmailStatus = 'success';
+                    } else {
+                        throw new Error(apiResponse.message || "Error al enviar el correo.");
+                    }
+
+                } catch (error) {
+                    EMAIL_MESSAGE_CONTAINER.classList.add('bg-red-100', 'text-red-700');
+                    EMAIL_MESSAGE_CONTAINER.textContent = error.message;
+                    currentEmailStatus = 'error';
+                }
+            }
+            
+            EMAIL_BTN_TEXT.textContent = 'Enviar Resultados';
+            EMAIL_SPINNER.classList.add('hidden');
+            CONFIRM_EMAIL_BTN.disabled = false;
+        }
+
+        function displayResults(data, isCached) {
+            // 1. Preparar datos
+            let rawFinalScore = data.Nota_Final; 
+            const roundedFinalScore = Math.round(rawFinalScore); 
+            const isApproved = roundedFinalScore >= APPROVAL_THRESHOLD;
+            currentStudentName = data.Nombre; // Guardar nombre para la función de correo
+            currentDNI = data.DNI; // Guardar DNI
+            
+            // 2. Aplicar colores y mensaje
+            const statusColor = isApproved ? 'bg-success-green' : 'bg-failure-red';
+            
+            // Lógica de mensaje con formato jerárquico
+            const statusHtml = isApproved 
+                ? '<strong>¡Aprobado!</strong> <span class="text-sm font-normal">Felicitaciones por tu esfuerzo.</span>'
+                : '<strong>Desaprobado.</strong> <span class="text-sm font-normal">Sigue esforzándote.</span>';
+            
+            // 3. Actualizar la Tarjeta de Resumen
+            SUMMARY_CARD.className = `p-6 rounded-xl shadow-lg transition duration-300 ease-in-out ${statusColor}`;
+            document.getElementById('studentNameDisplay').textContent = data.Nombre;
+            
+            // Llenar el nuevo contenedor de DNI
+            DNI_DISPLAY.textContent = `DNI: ${data.DNI}`;
+            
+            document.getElementById('finalScore').textContent = roundedFinalScore;
+            document.getElementById('finalStatus').innerHTML = `${statusHtml}`;
+            
+            // 4. Actualizar Timestamps
+            const consultSource = isCached ? '(Caché)' : '(Sistema)';
+            document.getElementById('lastNoteConsult').textContent = `Última consulta: ${data.Ultima_Consulta} ${consultSource}`;
+            
+            // 5. Actualizar Prácticas
+            applyScoreStyles(document.getElementById('p1Score'), document.getElementById('p1Bar'), data.Practica_1);
+            applyScoreStyles(document.getElementById('p2Score'), document.getElementById('p2Bar'), data.Practica_2);
+            applyScoreStyles(document.getElementById('p3Score'), document.getElementById('p3Bar'), data.Practica_3);
+            applyScoreStyles(document.getElementById('p4Score'), document.getElementById('p4Bar'), data.Practica_4);
+            
+            // 6. Aplicar barra de nota final
+            applyFinalScoreBar(rawFinalScore);
+            
+            // 7. Mostrar mensaje de éxito con el formato de Conexión Segura e ID de Sesión
+            showMessage(`Resultados de ${data.Nombre} cargados. Fuente: ${consultSource}`, 'success');
+            
+            // 8. Mostrar contenedor de resultados y botones de acción con fade-in
+            RESULTS_CONTAINER.classList.remove('opacity-0', 'pointer-events-none');
+            RESULTS_CONTAINER.classList.add('fade-in');
+            ACTION_BUTTONS.classList.remove('hidden');
+        }
+
+        function showMessage(msg, type = 'error') {
+            MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'fade-in', 'border-green-500', 'border-red-500');
+            
+            let contentHTML = '';
+
+            if (type === 'success') {
+                MESSAGE_CONTAINER.classList.add('bg-green-100', 'text-green-700', 'border-green-500', 'fade-in', 'text-left', 'py-3', 'px-4');
+                
+                contentHTML = `
+                    <div class="text-left leading-tight">
+                        <p class="text-base text-green-700 font-bold">Conexión segura establecida. ¡Bienvenido!</p>
+                    </div>
+                `;
+            } else {
+                MESSAGE_CONTAINER.classList.add('bg-red-100', 'text-red-700', 'border-red-500', 'fade-in', 'text-center', 'py-3', 'px-4');
+                contentHTML = msg; 
+            }
+            MESSAGE_CONTAINER.innerHTML = contentHTML;
+        }
+
+        function resetUI() {
+            RESULTS_CONTAINER.classList.add('opacity-0', 'pointer-events-none');
+            RESULTS_CONTAINER.classList.remove('fade-in');
+            MESSAGE_CONTAINER.classList.add('hidden');
+            ACTION_BUTTONS.classList.add('hidden'); 
+            document.getElementById('studentNameDisplay').textContent = '';
+            DNI_DISPLAY.textContent = ''; 
+            toggleModal(EMAIL_MODAL, false);
+            EMAIL_MESSAGE_CONTAINER.classList.add('hidden'); // Limpiar mensaje de email
+        }
+        
+        // Función principal que maneja el envío
+        async function handleFormSubmit(e) {
+            e.preventDefault(); 
+
+            const userKey = INPUT.value.toUpperCase().trim();
+
+            if (userKey.length < 9) { // DNI (8 dígitos) + Inicial Apellido (1 letra)
+                showMessage("La clave debe ser tu DNI de 8 dígitos más la inicial de tu apellido.", 'error');
+                return;
+            }
+            
+            resetUI();
+            BTN.disabled = true;
+            BTN_TEXT.textContent = 'Consultando Notas...';
+            SPINNER.classList.remove('hidden');
+
+            try {
+                // 1. Obtener los datos del backend
+                const data = await fetchScores(userKey);
+                
+                // 2. Ocultar spinner y mostrar modal de recordatorio
+                SPINNER.classList.add('hidden');
+                BTN_TEXT.textContent = 'Consultar Notas';
+                BTN.disabled = false;
+                
+                // 3. Mostrar el modal y esperar a que el usuario lo cierre
+                await showReminderModal();
+                
+                // 4. Mostrar los resultados finales
+                displayResults(data, data.cached);
+
+            } catch (error) {
+                console.error("Error en la consulta:", error);
+                showMessage(error.message || "Ocurrió un error en la consulta. Verifica tu clave o inténtalo de nuevo.", 'error');
+                BTN.disabled = false;
+                BTN_TEXT.textContent = 'Consultar Notas';
+                SPINNER.classList.add('hidden');
+            }
+        }
+        
+        // Asignación de variables DOM y Manejador de Eventos
+        window.onload = () => {
+            // Asignación de variables DOM del Formulario
+            FORM = document.getElementById('consultForm');
+            INPUT = document.getElementById('dniInput');
+            BTN = document.getElementById('consultBtn');
+            SPINNER = document.getElementById('loadingSpinner');
+            BTN_TEXT = document.getElementById('buttonText');
+            MESSAGE_CONTAINER = document.getElementById('messageContainer');
+            RESULTS_CONTAINER = document.getElementById('resultsContainer');
+            SUMMARY_CARD = document.getElementById('summaryCard');
+            ACTION_BUTTONS = document.getElementById('actionButtons'); 
+            DNI_DISPLAY = document.getElementById('dniDisplay'); 
+            APPROVAL_THRESHOLD = 13; 
+            
+            // Asignación de variables DOM de Modales
+            REMINDER_MODAL = document.getElementById('reminderModal');
+            CLOSE_MODAL_BTN = document.getElementById('closeModalBtn');
+            EMAIL_MODAL = document.getElementById('emailModal');
+            CANCEL_EMAIL_BTN = document.getElementById('cancelEmailBtn');
+            CONFIRM_EMAIL_BTN = document.getElementById('confirmEmailBtn');
+            RECIPIENT_EMAIL_INPUT = document.getElementById('recipientEmailInput');
+            EMAIL_SPINNER = document.getElementById('emailLoadingSpinner');
+            EMAIL_BTN_TEXT = document.getElementById('emailButtonText');
+            EMAIL_MESSAGE_CONTAINER = document.getElementById('emailMessageContainer');
+
+            // --- LISTENERS ---
+            FORM.addEventListener('submit', handleFormSubmit);
+            
+            // Imprimir
+            document.getElementById('printBtn').addEventListener('click', () => {
+                window.print();
+            });
+
+            // Abrir Modal de Correo
+            document.getElementById('mailBtn').addEventListener('click', () => {
+                toggleModal(EMAIL_MODAL, true);
+                RECIPIENT_EMAIL_INPUT.value = ''; // Limpiar campo
+                EMAIL_MESSAGE_CONTAINER.classList.add('hidden'); // Limpiar mensajes
+            });
+            
+            // Cancelar Modal de Correo
+            CANCEL_EMAIL_BTN.addEventListener('click', () => {
+                toggleModal(EMAIL_MODAL, false);
+            });
+            
+            // Confirmar Envío de Correo
+            CONFIRM_EMAIL_BTN.addEventListener('click', async () => {
+                const email = RECIPIENT_EMAIL_INPUT.value.trim();
+                
+                if (!email || !email.includes('@')) {
+                    EMAIL_MESSAGE_CONTAINER.classList.remove('hidden', 'bg-green-100', 'text-green-700');
+                    EMAIL_MESSAGE_CONTAINER.classList.add('bg-red-100', 'text-red-700');
+                    EMAIL_MESSAGE_CONTAINER.textContent = "Por favor, ingresa una dirección de correo válida.";
+                    return;
+                }
+
+                await sendScoreEmail(email);
+                
+                // Si fue exitoso, cerrar el modal
+                if (currentEmailStatus === 'success') {
+                     // Dejar un tiempo para que el usuario vea el mensaje de éxito
+                    setTimeout(() => toggleModal(EMAIL_MODAL, false), 1500); 
+                }
+            });
+        };
+    </script>
+</body>
+</html>
