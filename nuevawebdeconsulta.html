@@ -379,10 +379,15 @@
     </div>
 
     <script>
-        // *** CAMBIO NECESARIO PARA IMPLEMENTACIÓN REAL ***
-        // Para usar tus datos reales, reemplaza 'SU_APP_SCRIPT_ID_MOCK' con la URL de despliegue 
-        // de tu Google Apps Script. Mientras contenga 'SU_APP_SCRIPT_ID', usará mockData.
+        // *** IMPORTANTE PARA IMPLEMENTACIÓN REAL ***
+        // 1. REEMPLAZA esta URL con la de tu Apps Script desplegado (ej: 'https://script.google.com/macros/s/AKfycb.../exec').
+        // 2. Si quieres usar el MODO MOCK (pruebas), déjala como 'SU_APP_SCRIPT_ID_MOCK'.
         const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwbj5_cfHmX8iv62UUGx_d70CDuBISKHdKrUmG7ZrHfpjSpexTT0EcW0MBzbr16lne6Zw/exec'; 
+        
+        // *** SOLUCIÓN CORS ***
+        // Para resolver los errores "Failed to fetch" o "NetworkError" al usar GitHub Pages
+        // y Google Apps Script, usamos un proxy CORS. Esto permite que el navegador acepte la respuesta.
+        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/'; 
         
         // Simulación de datos de respuesta (Mock Data)
         const mockData = {
@@ -437,16 +442,16 @@
             });
         }
         
-        // Función de utilidad para simular el fetch (Modo Mock)
-        async function exponentialBackoffFetch(url, options, retries = 3) {
-            // Modo Mock: Simular éxito inmediato
-            if (url.includes('SU_APP_SCRIPT_ID')) {
+        // Función de utilidad para manejar el fetch con backoff exponencial y el proxy CORS
+        async function exponentialBackoffFetch(realUrl, options, retries = 3) {
+            
+            // --- Lógica del Modo MOCK ---
+            if (realUrl.includes('SU_APP_SCRIPT_ID')) {
                 const body = options.body ? JSON.parse(options.body) : {};
                 const userKey = body.userKey;
                 const action = body.action;
 
                 if (action === 'EMAIL') {
-                    // Simular latencia y respuesta para Email
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     if (body.email && body.email.includes('@')) {
                          return { success: true, message: `Correo simulado enviado a ${body.email}. (Modo Demo)` };
@@ -455,7 +460,6 @@
                     }
                 }
                 
-                // Simular latencia para la consulta (Modo Demo)
                 await new Promise(resolve => setTimeout(resolve, 1500)); 
                 
                 const data = mockData[userKey];
@@ -467,14 +471,33 @@
                 return { success: false, message: 'Usuario no encontrado. Verifique su DNI y la letra de su primer apellido.' };
             }
 
-            // Aquí iría el fetch real si no estuviéramos en modo mock
-            // *** ESTO SE EJECUTA SI USAS TU URL REAL ***
-            console.log("Intentando fetch a URL real:", url);
+            // --- Lógica del Modo REAL (Usando CORS Proxy) ---
+            const proxiedUrl = CORS_PROXY + realUrl;
+            console.log("Intentando fetch a Apps Script a través de CORS Proxy:", proxiedUrl);
+            
             try {
                 // Implementación del backoff exponencial
                 for (let i = 0; i < retries; i++) {
                     try {
-                        const response = await fetch(url, options);
+                        // El proxy CORS requiere que se pase la URL destino en un encabezado,
+                        // y que se haga la petición al proxy.
+                        const proxyOptions = {
+                            method: options.method,
+                            headers: { 
+                                ...options.headers, 
+                                // El proxy 'cors-anywhere' necesita este encabezado para funcionar
+                                'x-requested-with': 'XMLHttpRequest' 
+                            },
+                            body: options.body
+                        };
+                        
+                        const response = await fetch(proxiedUrl, proxyOptions);
+                        
+                        // Si cors-anywhere devuelve un error HTTP (por ejemplo 403), lo capturamos
+                        if (!response.ok) {
+                            throw new Error(`Error HTTP: ${response.status} al intentar contactar Apps Script.`);
+                        }
+                        
                         const result = await response.json();
                         
                         // Si Apps Script responde un error, lo manejamos como un fallo
@@ -482,22 +505,24 @@
                             throw new Error(result.message || "Error devuelto por el servidor de Apps Script.");
                         }
 
-                        if (!response.ok) {
-                            throw new Error(`Error HTTP: ${response.status}`);
-                        }
-
-                        // Asumiendo que Apps Script devuelve { success: true, data: { ... } }
+                        // Si Apps Script responde éxito
                         return result; 
+
                     } catch (error) {
                         console.warn(`Intento ${i + 1} fallido. Reintentando en ${2 ** i}s...`, error.message);
-                        if (i === retries - 1) throw error; // Lanzar error si es el último intento
+                        if (i === retries - 1) throw error; 
                         await new Promise(resolve => setTimeout(resolve, 2 ** i * 1000));
                     }
                 }
             } catch (error) {
-                 // Si falla el fetch real
+                 // Si falla el fetch final, que es el error que ve el usuario.
                 console.error("Fallo final en la conexión al Apps Script:", error);
-                return { success: false, message: error.message || 'Error de conexión al servidor Apps Script.' };
+                // NOTA: Si 'cors-anywhere' no funciona, se necesita desplegar un proxy propio.
+                const baseError = error.message.includes('cors-anywhere') 
+                    ? 'Error de conexión (CORS). Intenta acceder primero a https://cors-anywhere.herokuapp.com/ para activarlo.'
+                    : error.message;
+
+                return { success: false, message: baseError || 'Error de conexión al servidor Apps Script.' };
             }
         }
 
@@ -823,4 +848,3 @@ async function fetchScores(userKey) {
     </script>
 </body>
 </html>
-
