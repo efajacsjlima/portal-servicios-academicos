@@ -443,7 +443,7 @@
             for (let i = 0; i < retries; i++) {
                 try {
                     // Si estamos en modo mock (usando la URL de ejemplo), simular latencia
-                    if (url.includes("AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g")) {
+                    if (url.includes("APP_SCRIPT_URL")) {
                         await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 500)); 
                     }
                     
@@ -526,7 +526,7 @@
             }
 
             // 2. Modo MOCK (Usando la URL de Ejemplo)
-            if (APP_SCRIPT_URL.includes("AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g")) {
+            if (APP_SCRIPT_URL.includes("APP_SCRIPT_URL")) {
                 const data = mockData[userKey];
                 if (data) {
                      // Simular timestamp del script
@@ -547,7 +547,7 @@
                 }) 
             };
 
-            const apiResponse = await exponentialBackoffFetch(AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g, options);
+            const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, options);
             
             if (apiResponse.success) {
                 // Almacenar en caché y devolver
@@ -566,7 +566,7 @@
             CONFIRM_EMAIL_BTN.disabled = true;
             
             // En modo mock, simular éxito/fallo
-            if (APP_SCRIPT_URL.includes("AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g")) {
+            if (APP_SCRIPT_URL.includes("APP_SCRIPT_URL")) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
                 EMAIL_MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
@@ -592,7 +592,7 @@
                         }) 
                     };
 
-                    const apiResponse = await exponentialBackoffFetch(AKfycbyvqoA2eCfKi-UyAuUDY9AVC1RZ6bjlQT-ayq2A_nrsRE0J77e-5QbXH3_SN1mxji0R8g, options);
+                    const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, options);
                     
                     EMAIL_MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
 
