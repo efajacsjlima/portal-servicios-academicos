@@ -402,7 +402,7 @@
             '55556666J': {
                 Nombre: 'JORGE RÍOS',
                 DNI: '55556666',
-                Practica_1: 0, Practica_2: 11, Practica_3: 10, Practica_4: 11,
+                Practica_1: 0, Practica_2: 11, ProcesarConsultaNotas: 10, Practica_4: 11,
                 Nota_Final: 8.00, // (0+11+10+11)/4
             }
         };
@@ -443,16 +443,15 @@
             for (let i = 0; i < retries; i++) {
                 try {
                     // Si estamos en modo mock (usando la URL de ejemplo), simular latencia
-                    if (url.includes("SU_APP_SCRIPT_ID")) {
+                    if (url.includes("AKfycbxSTcvWryL0BGs7lJcEuxqhlDTSCdbgV_jn51RsK0kLrpnKaAesGSj5X2OgatdQHBpr3w")) {
                         await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 500)); 
                     }
                     
-                    // COMIENZO DEL AJUSTE: Eliminar encabezados para evitar CORS pre-flight fail
+                    // AHORA INCLUIMOS HEADERS para SEGURIDAD
                     const fetchOptions = {
                         method: options.method,
-                        body: options.body // Mantener el cuerpo JSON stringificado
-                        // ELIMINAMOS HEADERS para que el navegador no envíe Content-Type: application/json
-                        // y así evitamos el error de CORS
+                        headers: { 'Content-Type': 'application/json' }, // Mantenemos el encabezado JSON
+                        body: options.body 
                     };
                     
                     const response = await fetch(url, fetchOptions); 
@@ -469,8 +468,8 @@
                     try {
                         return JSON.parse(text); 
                     } catch (e) {
-                         // Esto captura el error "JSON.parse: unexpected end of data" o similar
-                         throw new Error(`Error de formato JSON: La respuesta del servidor fue inválida o incompleta. Contenido: "${text.substring(0, 50)}..."`);
+                         // Esto captura el error "JSON.parse: unexpected end of data"
+                         throw new Error(`Error de formato JSON: La respuesta del servidor fue inválida o incompleta.`);
                     }
 
                 } catch (error) {
@@ -527,7 +526,7 @@
             }
 
             // 2. Modo MOCK (Usando la URL de Ejemplo)
-            if (APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
+            if (APP_SCRIPT_URL.includes("AKfycbxSTcvWryL0BGs7lJcEuxqhlDTSCdbgV_jn51RsK0kLrpnKaAesGSj5X2OgatdQHBpr3w")) {
                 const data = mockData[userKey];
                 if (data) {
                      // Simular timestamp del script
@@ -541,14 +540,14 @@
             // 3. Modo REAL (Llamada al Google Apps Script via POST)
             const options = {
                 method: 'POST',
-                // ELIMINAMOS headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     userKey: userKey,
                     action: 'CONSULTA'
                 }) 
             };
 
-            const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, options);
+            const apiResponse = await exponentialBackoffFetch(AKfycbxSTcvWryL0BGs7lJcEuxqhlDTSCdbgV_jn51RsK0kLrpnKaAesGSj5X2OgatdQHBpr3w, options);
             
             if (apiResponse.success) {
                 // Almacenar en caché y devolver
@@ -567,7 +566,7 @@
             CONFIRM_EMAIL_BTN.disabled = true;
             
             // En modo mock, simular éxito/fallo
-            if (APP_SCRIPT_URL.includes("SU_APP_SCRIPT_ID")) {
+            if (APP_SCRIPT_URL.includes("AKfycbxSTcvWryL0BGs7lJcEuxqhlDTSCdbgV_jn51RsK0kLrpnKaAesGSj5X2OgatdQHBpr3w")) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
                 EMAIL_MESSAGE_CONTAINER.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
@@ -585,7 +584,7 @@
                 try {
                     const options = {
                         method: 'POST',
-                        // ELIMINAMOS headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             userKey: INPUT.value.toUpperCase().trim(),
                             email: email,
@@ -805,4 +804,3 @@
     </script>
 </body>
 </html>
-
