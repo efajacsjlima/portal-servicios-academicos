@@ -387,7 +387,7 @@
         // *** SOLUCIÓN CORS ***
         // Para resolver los errores "Failed to fetch" o "NetworkError" al usar GitHub Pages
         // y Google Apps Script, usamos un proxy CORS. Esto permite que el navegador acepte la respuesta.
-        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/'; 
+        
         
         // Simulación de datos de respuesta (Mock Data)
         const mockData = {
@@ -584,15 +584,17 @@ async function fetchScores(userKey) {
         throw new Error("Clave de usuario no encontrada o error simulado. Usa DNI + Inicial Apellido.");
     }
 
-    // 3. Modo REAL (Llamada al Google Apps Script via POST)
-    const options = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            userKey: userKey,
-            action: 'CONSULTA'
-        }) 
-    };
+
+   // 3. Modo REAL (Llamada al Google Apps Script via POST)
+const options = {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },  // ✅ CAMBIO CRÍTICO
+    body: JSON.stringify({ 
+        userKey: userKey,
+        action: 'CONSULTA'
+    }) 
+};
+
 
     const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, options);
     
@@ -620,15 +622,16 @@ async function fetchScores(userKey) {
             
             try {
                 // Modo MOCK/REAL
-                const options = {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        userKey: INPUT.value.toUpperCase().trim(), // CAMBIO: Se usa 'userKey'
-                        email: email,
-                        action: 'EMAIL'
-                    }) 
-                };
+               const options = {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },  // ✅ CAMBIO CRÍTICO
+    body: JSON.stringify({ 
+        userKey: INPUT.value.toUpperCase().trim(),
+        email: email,
+        action: 'EMAIL'
+    }) 
+};
+
 
                 const apiResponse = await exponentialBackoffFetch(APP_SCRIPT_URL, options);
                 
@@ -848,5 +851,6 @@ async function fetchScores(userKey) {
     </script>
 </body>
 </html>
+
 
 
