@@ -382,7 +382,7 @@
         // *** IMPORTANTE PARA IMPLEMENTACIÓN REAL ***
         // 1. REEMPLAZA esta URL con la de tu Apps Script desplegado (ej: 'https://script.google.com/macros/s/AKfycb.../exec').
         // 2. Si quieres usar el MODO MOCK (pruebas), déjala como 'SU_APP_SCRIPT_ID_MOCK'.
-        const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyrtuZe15aElDnUdIBTtjn5cWDFVgsvtVYwVd8mK1lUAox2dmOWg8QWBaXSyWTR8u1u/exec'; 
+        const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxtGhJwN41oZGBhhEOD0p9_GUo-GD3Q3Nza_G4IbWn5eqj4i0bFlWWtaC4QrQlqxTvW7g/exec'; 
         
         // *** SOLUCIÓN CORS ***
         // Para resolver los errores "Failed to fetch" o "NetworkError" al usar GitHub Pages
@@ -443,88 +443,88 @@
         }
         
         // Función de utilidad para manejar el fetch con backoff exponencial y el proxy CORS
-        async function exponentialBackoffFetch(realUrl, options, retries = 3) {
-            
-            // --- Lógica del Modo MOCK ---
-            if (realUrl.includes('SU_APP_SCRIPT_ID')) {
-                const body = options.body ? JSON.parse(options.body) : {};
-                const userKey = body.userKey;
-                const action = body.action;
+     async function exponentialBackoffFetch(realUrl, options, retries = 3) {
+    // --- Lógica del Modo MOCK (mantén esta parte IGUAL) ---
+    if (realUrl.includes('SU_APP_SCRIPT_ID')) {
+        const body = options.body ? JSON.parse(options.body) : {};
+        const userKey = body.userKey;
+        const action = body.action;
 
-                if (action === 'EMAIL') {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    if (body.email && body.email.includes('@')) {
-                         return { success: true, message: `Correo simulado enviado a ${body.email}. (Modo Demo)` };
-                    } else {
-                         return { success: false, message: 'Dirección de correo electrónico inválida.' };
-                    }
-                }
-                
-                await new Promise(resolve => setTimeout(resolve, 1500)); 
-                
-                const data = mockData[userKey];
-                if (data) {
-                    const now = new Date();
-                    const formattedDate = `${now.toLocaleDateString('es-PE')} ${now.toLocaleTimeString('es-PE')}`;
-                    return { success: true, data: {...data, Ultima_Consulta: formattedDate} };
-                }
-                return { success: false, message: 'Usuario no encontrado. Verifique su DNI y la letra de su primer apellido.' };
-            }
-
-            // --- Lógica del Modo REAL (Usando CORS Proxy) ---
-            const proxiedUrl = CORS_PROXY + realUrl;
-            console.log("Intentando fetch a Apps Script a través de CORS Proxy:", proxiedUrl);
-            
-            try {
-                // Implementación del backoff exponencial
-                for (let i = 0; i < retries; i++) {
-                    try {
-                        // El proxy CORS requiere que se pase la URL destino en un encabezado,
-                        // y que se haga la petición al proxy.
-                        const proxyOptions = {
-                            method: options.method,
-                            headers: { 
-                                ...options.headers, 
-                                // El proxy 'cors-anywhere' necesita este encabezado para funcionar
-                                'x-requested-with': 'XMLHttpRequest' 
-                            },
-                            body: options.body
-                        };
-                        
-                        const response = await fetch(proxiedUrl, proxyOptions);
-                        
-                        // Si cors-anywhere devuelve un error HTTP (por ejemplo 403), lo capturamos
-                        if (!response.ok) {
-                            throw new Error(`Error HTTP: ${response.status} al intentar contactar Apps Script.`);
-                        }
-                        
-                        const result = await response.json();
-                        
-                        // Si Apps Script responde un error, lo manejamos como un fallo
-                        if (result && result.success !== undefined && !result.success) {
-                            throw new Error(result.message || "Error devuelto por el servidor de Apps Script.");
-                        }
-
-                        // Si Apps Script responde éxito
-                        return result; 
-
-                    } catch (error) {
-                        console.warn(`Intento ${i + 1} fallido. Reintentando en ${2 ** i}s...`, error.message);
-                        if (i === retries - 1) throw error; 
-                        await new Promise(resolve => setTimeout(resolve, 2 ** i * 1000));
-                    }
-                }
-            } catch (error) {
-                 // Si falla el fetch final, que es el error que ve el usuario.
-                console.error("Fallo final en la conexión al Apps Script:", error);
-                // NOTA: Si 'cors-anywhere' no funciona, se necesita desplegar un proxy propio.
-                const baseError = error.message.includes('cors-anywhere') 
-                    ? 'Error de conexión (CORS). Intenta acceder primero a https://cors-anywhere.herokuapp.com/ para activarlo.'
-                    : error.message;
-
-                return { success: false, message: baseError || 'Error de conexión al servidor Apps Script.' };
+        // Si es acción EMAIL (enviar correo)
+        if (action === 'EMAIL') {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            if (body.email && body.email.includes('@')) {
+                return { success: true, message: `Correo simulado enviado a ${body.email}. (Modo Demo)` };
+            } else {
+                return { success: false, message: 'Dirección de correo electrónico inválida.' };
             }
         }
+
+        // Si es acción CONSULTA (consultar notas)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        const data = mockData[userKey];
+        if (data) {
+            const now = new Date();
+            const formattedDate = `${now.toLocaleDateString('es-PE')} ${now.toLocaleTimeString('es-PE')}`;
+            return { success: true, data: { ...data, UltimaConsulta: formattedDate } };
+        }
+        return { success: false, message: 'Usuario no encontrado. Verifique su DNI y la letra de su primer apellido.' };
+    }
+
+    // --- Lógica del Modo REAL: SIN PROXY, CON text/plain ---
+    console.log('Intentando fetch directo a Apps Script:', realUrl);
+    
+    // ✅ CAMBIO CRÍTICO: Cambiar Content-Type a text/plain
+    const modifiedOptions = {
+        method: options.method,
+        headers: {
+            'Content-Type': 'text/plain'  // ← Esto evita la petición OPTIONS preflight
+        },
+        body: options.body  // El body sigue siendo JSON.stringify
+    };
+    
+    try {
+        // Implementación del backoff exponencial
+        for (let i = 0; i < retries; i++) {
+            try {
+                // ✅ Fetch directo sin proxy
+                const response = await fetch(realUrl, modifiedOptions);
+                
+                // Verificar respuesta HTTP
+                if (!response.ok) {
+                    throw new Error(`Error HTTP ${response.status} al contactar Apps Script.`);
+                }
+                
+                const result = await response.json();
+                
+                // Si Apps Script responde un error, manejarlo
+                if (result && result.success === false) {
+                    throw new Error(result.message || result.error || 'Error devuelto por el servidor.');
+                }
+                
+                // Si es exitoso, retornar
+                console.log('Respuesta exitosa de Apps Script:', result);
+                return result;
+                
+            } catch (error) {
+                console.warn(`Intento ${i + 1} fallido. Reintentando...`, error.message);
+                
+                // Si es el último intento, lanzar el error
+                if (i === retries - 1) throw error;
+                
+                // Esperar antes del siguiente intento (backoff exponencial: 1s, 2s, 4s)
+                await new Promise(resolve => setTimeout(resolve, (2 ** i) * 1000));
+            }
+        }
+    } catch (error) {
+        console.error('Fallo final en la conexión:', error);
+        return { 
+            success: false, 
+            message: `Error de conexión: ${error.message}. Verifica tu conexión a internet.` 
+        };
+    }
+}
+
 
         // Función que aplica estilos a la puntuación de una práctica
         function applyScoreStyles(scoreElement, barElement, score) {
@@ -848,4 +848,5 @@ async function fetchScores(userKey) {
     </script>
 </body>
 </html>
+
 
