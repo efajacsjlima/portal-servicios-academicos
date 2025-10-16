@@ -417,60 +417,59 @@
      * Envía la petición HTTP POST a la Apps Script para ejecutar sendNoteByEmail.
      */
     async function sendEmailWrapper() {
-        const emailInput = document.getElementById('recipientEmailInput');
-        const recipientEmail = emailInput.value.trim();
-        const sendBtn = document.getElementById('sendEmailBtn');
+    const emailInput = document.getElementById('recipientEmailInput');
+    const recipientEmail = emailInput.value.trim();
+    const sendBtn = document.getElementById('sendEmailBtn');
 
-        if (!recipientEmail || !/\S+@\S+\.\S+/.test(recipientEmail)) {
-            displayEmailMessage("Error: Ingresa un correo electrónico válido.", true);
-            return;
-        }
-
-        if (!lastParticipantData) {
-            displayEmailMessage("Error interno: Datos del participante no disponibles.", true);
-            return;
-        }
-
-        // Validación de URL
-        if (GOOGLE_APPS_SCRIPT_URL.includes('PEGA AQUÍ LA URL')) {
-             displayEmailMessage("Error de configuración: Debes reemplazar '--- PEGA AQUÍ LA URL...' con la URL de despliegue de tu Apps Script.", true);
-             return;
-        }
-
-        // Mostrar estado de carga
-        sendBtn.disabled = true;
-        sendBtn.textContent = 'Enviando...';
-        displayEmailMessage("Procesando envío...", false);
-        
-        try {
-            const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'sendEmail', // Indicamos la acción al Apps Script
-                    recipientEmail: recipientEmail,
-                    participantData: lastParticipantData
-                }),
-            });
-            
-            const result = await response.json();
-
-            if (result.error) {
-                displayEmailMessage(result.error, true);
-            } else {
-                displayEmailMessage(`Éxito: La nota ha sido enviada a ${result.recipient || 'el destinatario'}.`, false);
-                setTimeout(cancelSendEmail, 2000); // Cerrar después de 2 segundos
-            }
-
-        } catch (error) {
-            console.error('Error en la llamada fetch (correo):', error);
-            displayEmailMessage('Error de red o del servidor al enviar el correo.', true);
-        }
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Enviar';
+    if (!recipientEmail || !/\S+@\S+\.\S+/.test(recipientEmail)) {
+        displayEmailMessage("Error: Ingresa un correo electrónico válido.", true);
+        return;
     }
+
+    if (!lastParticipantData) {
+        displayEmailMessage("Error interno: Datos del participante no disponibles.", true);
+        return;
+    }
+
+    if (GOOGLE_APPS_SCRIPT_URL.includes('PEGA AQUÍ LA URL')) {
+         displayEmailMessage("Error de configuración: Debes reemplazar '--- PEGA AQUÍ LA URL...' con la URL de despliegue de tu Apps Script.", true);
+         return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Enviando...';
+    displayEmailMessage("Procesando envío...", false);
+    
+    try {
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain',  // ✅ CAMBIO CRÍTICO
+            },
+            body: JSON.stringify({
+                action: 'sendEmail',
+                recipientEmail: recipientEmail,
+                participantData: lastParticipantData
+            }),
+        });
+        
+        const result = await response.json();
+
+        if (result.error) {
+            displayEmailMessage(result.error, true);
+        } else {
+            displayEmailMessage(`Éxito: La nota ha sido enviada a ${result.recipient || 'el destinatario'}.`, false);
+            setTimeout(cancelSendEmail, 2000);
+        }
+
+    } catch (error) {
+        console.error('Error en la llamada fetch (correo):', error);
+        displayEmailMessage('Error de red o del servidor al enviar el correo.', true);
+    }
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Enviar';
+}
+
     // --- FIN LÓGICA DEL MODAL DE CORREO ---
 
 
@@ -511,48 +510,47 @@
     /**
      * Envía la petición HTTP POST a la Apps Script para ejecutar consultarNotasAndSave.
      */
-    async function iniciarConsulta(dni) {
-      const consultarBtn = document.getElementById('consultarBtn');
-      const buttonText = document.getElementById('buttonText');
-      const buttonIcon = document.getElementById('buttonIcon');
-      
-      // Mostrar estado de carga
-      consultarBtn.disabled = true;
-      buttonText.textContent = 'Consultando...';
-      buttonIcon.innerHTML = '🔄'; 
-      
-      // Validación de URL
-      if (GOOGLE_APPS_SCRIPT_URL.includes('PEGA AQUÍ LA URL')) {
-             onFailure("Error de configuración: Debes reemplazar '--- PEGA AQUÍ LA URL...' con la URL de despliegue de tu Apps Script.");
-             return;
-      }
+  async function iniciarConsulta(dni) {
+  const consultarBtn = document.getElementById('consultarBtn');
+  const buttonText = document.getElementById('buttonText');
+  const buttonIcon = document.getElementById('buttonIcon');
+  
+  // Mostrar estado de carga
+  consultarBtn.disabled = true;
+  buttonText.textContent = 'Consultando...';
+  buttonIcon.innerHTML = '🔄'; 
+  
+  // Validación de URL
+  if (GOOGLE_APPS_SCRIPT_URL.includes('PEGA AQUÍ LA URL')) {
+         onFailure("Error de configuración: Debes reemplazar '--- PEGA AQUÍ LA URL...' con la URL de despliegue de tu Apps Script.");
+         return;
+  }
 
-      try {
-        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: {
-                // Es crucial para que Apps Script pueda leer e.postData.contents como JSON
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'consultarNotas', // Indicamos la acción al Apps Script
-                dni: dni
-            }),
-        });
-        
-        // Si la respuesta no es OK, lanzamos un error
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        onSuccess(result);
-
-      } catch (error) {
-        console.error('Error en la llamada fetch (consulta):', error);
-        onFailure(`Error de red o del servidor: ${error.message}.`);
-      }
+  try {
+    const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'text/plain',  // ✅ CAMBIO CRÍTICO
+        },
+        body: JSON.stringify({
+            action: 'consultarNotas',
+            dni: dni
+        }),
+    });
+    
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const result = await response.json();
+    onSuccess(result);
+
+  } catch (error) {
+    console.error('Error en la llamada fetch (consulta):', error);
+    onFailure(`Error de red o del servidor: ${error.message}.`);
+  }
+}
+
 
     // Maneja la respuesta exitosa (desde la API de GAS)
     function onSuccess(response) {
@@ -611,3 +609,4 @@
   </script>
 </body>
 </html>
+
